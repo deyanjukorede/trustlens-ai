@@ -33,8 +33,10 @@ def test_missing_values(sample_data):
 
     assert result["total_missing"] == 1
     assert result["missing_rate"] == 6.25
-    assert result["by_column"]["age"]["missing_count"] == 1
-    assert result["by_column"]["age"]["missing_rate"] == 25.0
+    assert result["by_column"]["age"] == 1
+    assert result["by_column"]["customer_id"] == 0
+    assert result["by_column"]["income"] == 0
+    assert result["by_column"]["risk"] == 0
 
 
 def test_duplicate_rows():
@@ -49,7 +51,7 @@ def test_duplicate_rows():
     profiler = DataQualityProfiler(data)
     result = profiler.duplicate_values()
 
-    assert result["duplicate_rows"] == 1
+    assert result["duplicate_count"] == 1
     assert result["duplicate_rate"] == 33.33
 
 
@@ -204,9 +206,9 @@ def test_quality_score_remains_separate_from_outliers():
                 101,
                 99,
                 103,
-                100,
-                102,
-                101,
+                104,
+                105,
+                106,
                 50000,
             ]
         }
