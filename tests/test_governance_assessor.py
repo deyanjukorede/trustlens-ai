@@ -79,7 +79,10 @@ def test_data_types_are_reported(sample_data):
     assert inventory["customer_id"]["data_type"] == "int64"
     assert inventory["age"]["data_type"] == "float64"
     assert inventory["income"]["data_type"] == "int64"
-    assert inventory["risk"]["data_type"] == "object"
+
+    # Pandas may represent text columns as either "object" or "str"
+    # depending on the pandas/Python environment.
+    assert inventory["risk"]["data_type"] in {"object", "str"}
 
 
 def test_assess_returns_expected_sections(sample_data):
