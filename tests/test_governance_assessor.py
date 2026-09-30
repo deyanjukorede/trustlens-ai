@@ -310,10 +310,10 @@ def test_privacy_risk_level_is_valid(
     analysis = assessor.privacy_risk_analysis()
 
     assert analysis["risk_level"] in {
-        "Low",
-        "Moderate",
-        "High",
-        "Critical",
+        "low",
+        "moderate",
+        "high",
+        "critical",
     }
 
 
