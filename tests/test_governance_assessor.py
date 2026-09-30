@@ -259,3 +259,105 @@ def test_single_column_dataset():
     assert "customer_id" in report["column_inventory"]
     assert report["column_inventory"]["customer_id"]["unique_count"] == 3
     assert "sensitive_data" in report
+
+
+def test_privacy_risk_analysis_returns_expected_structure(
+    sensitive_governance_data,
+):
+    """Privacy-risk analysis should return the expected assessment structure."""
+    assessor = DataGovernanceAssessor(sensitive_governance_data)
+    analysis = assessor.privacy_risk_analysis()
+
+    assert isinstance(analysis, dict)
+    assert "privacy_risk_score" in analysis
+    assert "risk_level" in analysis
+    assert "sensitive_columns_detected" in analysis
+    assert "sensitive_column_ratio" in analysis
+    assert "sensitive_types_detected" in analysis
+    assert "type_risk_score" in analysis
+    assert "exposure_score" in analysis
+    assert "recommendations" in analysis
+    assert "sensitive_data" in analysis
+
+
+def test_privacy_risk_analysis_detects_sensitive_columns(
+    sensitive_governance_data,
+):
+    """Privacy-risk analysis should recognise sensitive dataset columns."""
+    assessor = DataGovernanceAssessor(sensitive_governance_data)
+    analysis = assessor.privacy_risk_analysis()
+
+    assert analysis["sensitive_columns_detected"] > 0
+    assert analysis["sensitive_column_ratio"] > 0
+    assert len(analysis["sensitive_types_detected"]) > 0
+
+
+def test_privacy_risk_score_is_valid(
+    sensitive_governance_data,
+):
+    """Privacy-risk score should remain within the supported range."""
+    assessor = DataGovernanceAssessor(sensitive_governance_data)
+    analysis = assessor.privacy_risk_analysis()
+
+    assert 0 <= analysis["privacy_risk_score"] <= 100
+
+
+def test_privacy_risk_level_is_valid(
+    sensitive_governance_data,
+):
+    """Privacy-risk level should use a recognised classification."""
+    assessor = DataGovernanceAssessor(sensitive_governance_data)
+    analysis = assessor.privacy_risk_analysis()
+
+    assert analysis["risk_level"] in {
+        "Low",
+        "Moderate",
+        "High",
+        "Critical",
+    }
+
+
+def test_privacy_risk_recommendations_are_returned(
+    sensitive_governance_data,
+):
+    """Privacy-risk analysis should provide governance recommendations."""
+    assessor = DataGovernanceAssessor(sensitive_governance_data)
+    analysis = assessor.privacy_risk_analysis()
+
+    assert isinstance(analysis["recommendations"], list)
+    assert len(analysis["recommendations"]) > 0
+
+
+def test_assess_contains_privacy_risk(
+    sensitive_governance_data,
+):
+    """Complete governance assessment should include privacy-risk analysis."""
+    assessor = DataGovernanceAssessor(sensitive_governance_data)
+    report = assessor.assess()
+
+    assert "privacy_risk" in report
+    assert report["privacy_risk"] == assessor.privacy_risk_analysis()
+
+
+def test_assess_privacy_risk_contains_sensitive_data(
+    sensitive_governance_data,
+):
+    """Integrated privacy-risk report should retain sensitive-data evidence."""
+    assessor = DataGovernanceAssessor(sensitive_governance_data)
+    report = assessor.assess()
+
+    assert "sensitive_data" in report["privacy_risk"]
+    assert isinstance(report["privacy_risk"]["sensitive_data"], dict)
+
+
+def test_privacy_risk_integration_preserves_existing_sections(
+    sensitive_governance_data,
+):
+    """Adding privacy risk should preserve existing governance sections."""
+    assessor = DataGovernanceAssessor(sensitive_governance_data)
+    report = assessor.assess()
+
+    assert "dataset" in report
+    assert "column_inventory" in report
+    assert "sensitive_data" in report
+    assert "privacy_risk" in report
