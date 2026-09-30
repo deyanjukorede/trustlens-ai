@@ -6,14 +6,16 @@ characteristics of datasets used in artificial intelligence and
 machine learning systems.
 
 The assessor combines structural governance information with
-sensitive-data detection to support broader privacy, metadata,
-governance-control, and governance-scoring capabilities.
+sensitive-data detection and privacy-risk assessment to support
+broader privacy, metadata, governance-control, and governance-scoring
+capabilities.
 """
 
 from typing import Any, Dict
 
 import pandas as pd
 
+from .privacy_risk import PrivacyRiskAssessor
 from .sensitive_data import SensitiveDataDetector
 
 
@@ -21,10 +23,11 @@ class DataGovernanceAssessor:
     """
     Perform governance assessment of a pandas DataFrame.
 
-    The assessor provides structural information and sensitive-data
-    analysis that later TrustLens governance components can use when
-    evaluating privacy risk, metadata quality, governance controls,
-    and overall governance readiness.
+    The assessor provides structural information, sensitive-data
+    analysis, and privacy-risk assessment that later TrustLens
+    governance components can use when evaluating metadata quality,
+    governance controls, governance scoring, and overall governance
+    readiness.
     """
 
     def __init__(self, data: pd.DataFrame) -> None:
@@ -98,15 +101,32 @@ class DataGovernanceAssessor:
         detector = SensitiveDataDetector(self.data)
         return detector.summary()
 
+    def privacy_risk_analysis(self) -> Dict[str, Any]:
+        """
+        Assess privacy risk associated with the dataset.
+
+        The privacy-risk assessor builds on sensitive-data detection
+        to calculate privacy-risk indicators, risk classification,
+        exposure information, and governance recommendations.
+
+        Returns
+        -------
+        dict
+            Structured privacy-risk assessment.
+        """
+        assessor = PrivacyRiskAssessor(self.data)
+        return assessor.assess()
+
     def assess(self) -> Dict[str, Any]:
         """
-        Run the TrustLens governance assessment.
+        Run the complete TrustLens governance assessment.
 
         Returns
         -------
         dict
             Structured governance assessment containing dataset
-            information, column inventory, and sensitive-data analysis.
+            information, column inventory, sensitive-data analysis,
+            and privacy-risk analysis.
         """
         return {
             "dataset": {
@@ -115,4 +135,5 @@ class DataGovernanceAssessor:
             },
             "column_inventory": self.column_inventory(),
             "sensitive_data": self.sensitive_data_analysis(),
+            "privacy_risk": self.privacy_risk_analysis(),
         }
