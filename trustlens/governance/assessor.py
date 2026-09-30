@@ -5,24 +5,26 @@ This module provides the foundation for evaluating governance-related
 characteristics of datasets used in artificial intelligence and
 machine learning systems.
 
-More advanced governance capabilities such as sensitive-data
-detection, privacy-risk assessment, metadata validation, and
-governance scoring will be added in later TrustLens phases.
+The assessor combines structural governance information with
+sensitive-data detection to support broader privacy, metadata,
+governance-control, and governance-scoring capabilities.
 """
 
 from typing import Any, Dict
 
 import pandas as pd
 
+from .sensitive_data import SensitiveDataDetector
+
 
 class DataGovernanceAssessor:
     """
-    Perform foundational governance assessment of a pandas DataFrame.
+    Perform governance assessment of a pandas DataFrame.
 
-    The assessor provides structural information that later TrustLens
-    governance components can use when evaluating data classification,
-    sensitive information, metadata, privacy risk, and governance
-    controls.
+    The assessor provides structural information and sensitive-data
+    analysis that later TrustLens governance components can use when
+    evaluating privacy risk, metadata quality, governance controls,
+    and overall governance readiness.
     """
 
     def __init__(self, data: pd.DataFrame) -> None:
@@ -81,15 +83,30 @@ class DataGovernanceAssessor:
 
         return inventory
 
+    def sensitive_data_analysis(self) -> Dict[str, Any]:
+        """
+        Analyse the dataset for potentially sensitive information.
+
+        Detection combines recognised column-name indicators with
+        value-pattern analysis.
+
+        Returns
+        -------
+        dict
+            Sensitive-data assessment summary.
+        """
+        detector = SensitiveDataDetector(self.data)
+        return detector.summary()
+
     def assess(self) -> Dict[str, Any]:
         """
-        Run the foundational TrustLens governance assessment.
+        Run the TrustLens governance assessment.
 
         Returns
         -------
         dict
             Structured governance assessment containing dataset
-            information and a column inventory.
+            information, column inventory, and sensitive-data analysis.
         """
         return {
             "dataset": {
@@ -97,4 +114,5 @@ class DataGovernanceAssessor:
                 "columns": self.column_count,
             },
             "column_inventory": self.column_inventory(),
+            "sensitive_data": self.sensitive_data_analysis(),
         }
