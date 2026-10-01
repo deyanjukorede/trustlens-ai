@@ -6,15 +6,16 @@ characteristics of datasets used in artificial intelligence and
 machine learning systems.
 
 The assessor combines structural governance information with
-sensitive-data detection and privacy-risk assessment to support
-broader privacy, metadata, governance-control, and governance-scoring
-capabilities.
+sensitive-data detection, privacy-risk assessment, and metadata
+completeness assessment to support broader privacy, metadata,
+governance-control, and governance-scoring capabilities.
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pandas as pd
 
+from .metadata import MetadataCompletenessAssessor
 from .privacy_risk import PrivacyRiskAssessor
 from .sensitive_data import SensitiveDataDetector
 
@@ -24,13 +25,17 @@ class DataGovernanceAssessor:
     Perform governance assessment of a pandas DataFrame.
 
     The assessor provides structural information, sensitive-data
-    analysis, and privacy-risk assessment that later TrustLens
-    governance components can use when evaluating metadata quality,
-    governance controls, governance scoring, and overall governance
-    readiness.
+    analysis, privacy-risk assessment, and optional metadata
+    completeness assessment that later TrustLens governance components
+    can use when evaluating metadata quality, governance controls,
+    governance scoring, and overall governance readiness.
     """
 
-    def __init__(self, data: pd.DataFrame) -> None:
+    def __init__(
+        self,
+        data: pd.DataFrame,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """
         Initialise the governance assessor.
 
@@ -38,6 +43,9 @@ class DataGovernanceAssessor:
         ----------
         data:
             Dataset to be assessed.
+        metadata:
+            Optional dataset metadata used for metadata-completeness
+            assessment.
 
         Raises
         ------
@@ -52,7 +60,11 @@ class DataGovernanceAssessor:
         if data.empty:
             raise ValueError("data must not be empty")
 
+        if metadata is not None and not isinstance(metadata, dict):
+            raise TypeError("metadata must be a dictionary or None")
+
         self.data = data
+        self.metadata = metadata
 
     @property
     def row_count(self) -> int:
@@ -117,6 +129,25 @@ class DataGovernanceAssessor:
         assessor = PrivacyRiskAssessor(self.data)
         return assessor.assess()
 
+    def metadata_completeness_analysis(self) -> Optional[Dict[str, Any]]:
+        """
+        Assess completeness of governance metadata when metadata is supplied.
+
+        Returns
+        -------
+        dict or None
+            Structured metadata-completeness assessment when metadata
+            is available, otherwise None.
+        """
+        if self.metadata is None:
+            return None
+
+        assessor = MetadataCompletenessAssessor(
+            self.data,
+            self.metadata,
+        )
+        return assessor.assess()
+
     def assess(self) -> Dict[str, Any]:
         """
         Run the complete TrustLens governance assessment.
@@ -126,7 +157,7 @@ class DataGovernanceAssessor:
         dict
             Structured governance assessment containing dataset
             information, column inventory, sensitive-data analysis,
-            and privacy-risk analysis.
+            privacy-risk analysis, and metadata-completeness analysis.
         """
         return {
             "dataset": {
@@ -136,4 +167,5 @@ class DataGovernanceAssessor:
             "column_inventory": self.column_inventory(),
             "sensitive_data": self.sensitive_data_analysis(),
             "privacy_risk": self.privacy_risk_analysis(),
+            "metadata_completeness": self.metadata_completeness_analysis(),
         }
