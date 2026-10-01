@@ -361,3 +361,131 @@ def test_privacy_risk_integration_preserves_existing_sections(
     assert "column_inventory" in report
     assert "sensitive_data" in report
     assert "privacy_risk" in report
+def test_metadata_completeness_analysis_without_metadata(sample_data):
+    """Metadata completeness should be None when metadata is not supplied."""
+    assessor = DataGovernanceAssessor(sample_data)
+
+    analysis = assessor.metadata_completeness_analysis()
+
+    assert analysis is None
+
+
+def test_metadata_completeness_analysis_with_complete_metadata(sample_data):
+    """Metadata completeness should assess supplied complete metadata."""
+    metadata = {
+        "customer_id": {
+            "description": "Unique customer identifier",
+            "owner": "Customer Data Team",
+            "business_definition": "Identifier assigned to each customer",
+        },
+        "age": {
+            "description": "Customer age",
+            "owner": "Customer Data Team",
+            "business_definition": "Age of the customer in years",
+        },
+        "income": {
+            "description": "Customer income",
+            "owner": "Finance Data Team",
+            "business_definition": "Recorded customer income",
+        },
+        "risk": {
+            "description": "Customer risk category",
+            "owner": "Risk Team",
+            "business_definition": "Assigned customer risk classification",
+        },
+    }
+
+    assessor = DataGovernanceAssessor(sample_data, metadata=metadata)
+    analysis = assessor.metadata_completeness_analysis()
+
+    assert analysis is not None
+    assert analysis["metadata_completeness_score"] == 100
+    assert analysis["columns_assessed"] == 4
+    assert analysis["columns_with_complete_metadata"] == 4
+    assert analysis["columns_with_incomplete_metadata"] == 0
+
+
+def test_metadata_completeness_analysis_detects_incomplete_metadata(sample_data):
+    """Metadata completeness should identify incomplete metadata."""
+    metadata = {
+        "customer_id": {
+            "description": "Unique customer identifier",
+            "owner": "Customer Data Team",
+            "business_definition": "Identifier assigned to each customer",
+        },
+        "age": {
+            "description": "Customer age",
+            "owner": "",
+            "business_definition": "Age of the customer in years",
+        },
+    }
+
+    assessor = DataGovernanceAssessor(sample_data, metadata=metadata)
+    analysis = assessor.metadata_completeness_analysis()
+
+    assert analysis is not None
+    assert analysis["metadata_completeness_score"] < 100
+    assert analysis["columns_with_incomplete_metadata"] > 0
+    assert len(analysis["recommendations"]) > 0
+
+
+def test_assess_contains_metadata_completeness_when_metadata_supplied(sample_data):
+    """Complete governance assessment should include metadata completeness."""
+    metadata = {
+        "customer_id": {
+            "description": "Unique customer identifier",
+            "owner": "Customer Data Team",
+            "business_definition": "Identifier assigned to each customer",
+        },
+        "age": {
+            "description": "Customer age",
+            "owner": "Customer Data Team",
+            "business_definition": "Age of the customer in years",
+        },
+        "income": {
+            "description": "Customer income",
+            "owner": "Finance Data Team",
+            "business_definition": "Recorded customer income",
+        },
+        "risk": {
+            "description": "Customer risk category",
+            "owner": "Risk Team",
+            "business_definition": "Assigned customer risk classification",
+        },
+    }
+
+    assessor = DataGovernanceAssessor(sample_data, metadata=metadata)
+    report = assessor.assess()
+
+    assert "metadata_completeness" in report
+    assert report["metadata_completeness"] is not None
+    assert report["metadata_completeness"]["metadata_completeness_score"] == 100
+
+
+def test_assess_metadata_completeness_is_none_without_metadata(sample_data):
+    """Governance assessment should remain compatible without metadata."""
+    assessor = DataGovernanceAssessor(sample_data)
+    report = assessor.assess()
+
+    assert "metadata_completeness" in report
+    assert report["metadata_completeness"] is None
+
+
+def test_metadata_integration_preserves_existing_governance_sections(sample_data):
+    """Metadata integration should preserve all existing governance sections."""
+    metadata = {
+        "customer_id": {
+            "description": "Unique customer identifier",
+            "owner": "Customer Data Team",
+            "business_definition": "Identifier assigned to each customer",
+        },
+    }
+
+    assessor = DataGovernanceAssessor(sample_data, metadata=metadata)
+    report = assessor.assess()
+
+    assert "dataset" in report
+    assert "column_inventory" in report
+    assert "sensitive_data" in report
+    assert "privacy_risk" in report
+    assert "metadata_completeness" in report
