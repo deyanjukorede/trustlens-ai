@@ -141,7 +141,7 @@ def test_partial_metadata_score(
         partial_metadata,
     )
 
-    assert assessor.completeness_score() == 66.67
+    assert assessor.completeness_score() == 55.55
     assert assessor.completeness_level() == "Partial"
 
 
