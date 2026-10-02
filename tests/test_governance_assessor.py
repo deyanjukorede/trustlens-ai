@@ -522,7 +522,7 @@ def test_governance_controls_analysis_with_complete_controls(sample_data):
     assert analysis["controls_assessed"] == 7
     assert analysis["controls_implemented"] == 7
     assert analysis["controls_missing"] == 0
-    assert analysis["governance_control_score"] == 100.0
+    assert analysis["governance_controls_score"] == 100.0
 
 
 def test_governance_controls_analysis_with_partial_controls(sample_data):
@@ -544,8 +544,7 @@ def test_governance_controls_analysis_with_partial_controls(sample_data):
     assert analysis["controls_assessed"] == 7
     assert analysis["controls_implemented"] == 4
     assert analysis["controls_missing"] == 3
-    assert analysis["governance_control_score"] == 57.14
-
+    assert analysis["governance_controls_score"] == 57.14
 
 def test_assess_contains_governance_controls_when_supplied(sample_data):
     """Complete governance assessment should include governance controls."""
