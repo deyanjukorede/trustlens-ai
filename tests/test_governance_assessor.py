@@ -503,13 +503,13 @@ def test_governance_controls_analysis_without_controls(sample_data):
 def test_governance_controls_analysis_with_complete_controls(sample_data):
     """Governance-controls analysis should assess supplied controls."""
     governance_controls = {
-        "data_owner_assigned": True,
-        "data_steward_assigned": True,
-        "access_controls_defined": True,
-        "retention_policy_defined": True,
-        "data_classification_defined": True,
-        "data_quality_rules_defined": True,
-        "audit_logging_enabled": True,
+        "data_owner": "Customer Operations",
+        "approved_purpose": "Customer risk assessment",
+        "data_classification": "Confidential",
+        "access_control": True,
+        "retention_policy": "7 years",
+        "review_process": "Annual governance review",
+        "accountability": "Head of Data",
     }
 
     assessor = DataGovernanceAssessor(
@@ -528,13 +528,10 @@ def test_governance_controls_analysis_with_complete_controls(sample_data):
 def test_governance_controls_analysis_with_partial_controls(sample_data):
     """Governance-controls analysis should identify missing controls."""
     governance_controls = {
-        "data_owner_assigned": True,
-        "data_steward_assigned": False,
-        "access_controls_defined": True,
-        "retention_policy_defined": False,
-        "data_classification_defined": True,
-        "data_quality_rules_defined": True,
-        "audit_logging_enabled": False,
+        "data_owner": "Customer Operations",
+        "approved_purpose": "Customer risk assessment",
+        "data_classification": "Confidential",
+        "access_control": True,
     }
 
     assessor = DataGovernanceAssessor(
@@ -547,19 +544,19 @@ def test_governance_controls_analysis_with_partial_controls(sample_data):
     assert analysis["controls_assessed"] == 7
     assert analysis["controls_implemented"] == 4
     assert analysis["controls_missing"] == 3
-    assert analysis["governance_control_score"] < 100.0
+    assert analysis["governance_control_score"] == 57.14
 
 
 def test_assess_contains_governance_controls_when_supplied(sample_data):
     """Complete governance assessment should include governance controls."""
     governance_controls = {
-        "data_owner_assigned": True,
-        "data_steward_assigned": True,
-        "access_controls_defined": True,
-        "retention_policy_defined": True,
-        "data_classification_defined": True,
-        "data_quality_rules_defined": True,
-        "audit_logging_enabled": True,
+        "data_owner": "Customer Operations",
+        "approved_purpose": "Customer risk assessment",
+        "data_classification": "Confidential",
+        "access_control": True,
+        "retention_policy": "7 years",
+        "review_process": "Annual governance review",
+        "accountability": "Head of Data",
     }
 
     assessor = DataGovernanceAssessor(
@@ -590,13 +587,13 @@ def test_governance_controls_integration_preserves_existing_sections(
 ):
     """Governance-controls integration should preserve existing report sections."""
     governance_controls = {
-        "data_owner_assigned": True,
-        "data_steward_assigned": True,
-        "access_controls_defined": True,
-        "retention_policy_defined": True,
-        "data_classification_defined": True,
-        "data_quality_rules_defined": True,
-        "audit_logging_enabled": True,
+        "data_owner": "Customer Operations",
+        "approved_purpose": "Customer risk assessment",
+        "data_classification": "Confidential",
+        "access_control": True,
+        "retention_policy": "7 years",
+        "review_process": "Annual governance review",
+        "accountability": "Head of Data",
     }
 
     assessor = DataGovernanceAssessor(
