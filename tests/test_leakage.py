@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from trustlens.readiness.leakage import LeakageRiskAnalyzer
+from trustlens.leakage import LeakageRiskAnalyzer
 
 
 @pytest.fixture
