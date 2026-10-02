@@ -1,28 +1,34 @@
 """
 Core AI readiness assessor for TrustLens AI.
 
-This module provides the foundation for evaluating whether datasets
-are structurally suitable for artificial intelligence and machine
-learning workflows.
+This module provides the integrated foundation for evaluating whether
+datasets are structurally suitable for artificial intelligence and
+machine learning workflows.
 
-More advanced Phase 4 capabilities, including class-imbalance
-analysis, feature suitability, leakage-risk detection, and integrated
-AI readiness scoring, are added through the readiness package.
+The assessor combines foundational dataset readiness information with
+feature suitability, class imbalance, and data leakage risk analysis.
 """
 
 from typing import Any, Dict, List
 
 import pandas as pd
 
+from .class_imbalance import ClassImbalanceAnalyzer
+from .feature_suitability import FeatureSuitabilityAnalyzer
+from ..leakage import LeakageRiskAnalyzer
+
 
 class AIReadinessAssessor:
     """
-    Perform foundational AI readiness assessment of a pandas DataFrame.
+    Perform integrated AI readiness assessment of a pandas DataFrame.
 
-    The assessor establishes structural information used by later
-    TrustLens readiness components when evaluating modelling
-    suitability, target variables, feature composition, imbalance,
-    and potential leakage risks.
+    The assessor evaluates structural characteristics of a dataset and
+    coordinates specialised TrustLens readiness components for feature
+    suitability, target-class imbalance, and potential data leakage.
+
+    Class-imbalance and leakage analysis require a target column.
+    When no target column is supplied, those analyses are reported as
+    not applicable rather than causing the overall assessment to fail.
     """
 
     def __init__(
@@ -152,16 +158,135 @@ class AIReadinessAssessor:
             "missing_by_column": missing_by_column,
         }
 
+    def feature_suitability_analysis(self) -> Dict[str, Any]:
+        """
+        Run feature-suitability analysis.
+
+        The prediction target, when supplied, is excluded from feature
+        suitability assessment by the specialised analyzer.
+        """
+        analyzer = FeatureSuitabilityAnalyzer(
+            self.data,
+            target_column=self.target_column,
+        )
+        return analyzer.analyze()
+
+    def class_imbalance_analysis(self) -> Dict[str, Any]:
+        """
+        Run target-class imbalance analysis.
+
+        Returns a not-applicable result when no prediction target has
+        been supplied.
+        """
+        if self.target_column is None:
+            return {
+                "applicable": False,
+                "reason": (
+                    "Class imbalance analysis requires a target column."
+                ),
+            }
+
+        analyzer = ClassImbalanceAnalyzer(
+            self.data,
+            target_column=self.target_column,
+        )
+
+        result = analyzer.assess()
+        result["applicable"] = True
+
+        return result
+
+    def leakage_risk_analysis(self) -> Dict[str, Any]:
+        """
+        Run structural data-leakage risk analysis.
+
+        Returns a not-applicable result when no prediction target has
+        been supplied.
+        """
+        if self.target_column is None:
+            return {
+                "applicable": False,
+                "reason": (
+                    "Data leakage analysis requires a target column."
+                ),
+            }
+
+        analyzer = LeakageRiskAnalyzer(
+            self.data,
+            target_column=self.target_column,
+        )
+
+        result = analyzer.assess()
+        result["applicable"] = True
+
+        return result
+
+    def readiness_summary(
+        self,
+        feature_suitability: Dict[str, Any],
+        class_imbalance: Dict[str, Any],
+        leakage_risk: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Build a concise integrated AI-readiness summary.
+
+        This summary does not claim that a dataset is automatically
+        safe or appropriate for modelling. It surfaces structural
+        conditions that may require review before model development.
+        """
+        features_requiring_review = feature_suitability.get(
+            "features_requiring_review",
+            [],
+        )
+
+        class_imbalance_detected = (
+            class_imbalance.get("is_imbalanced", False)
+            if class_imbalance.get("applicable", False)
+            else None
+        )
+
+        leakage_level = (
+            leakage_risk.get("risk_level")
+            if leakage_risk.get("applicable", False)
+            else None
+        )
+
+        review_reasons: List[str] = []
+
+        if features_requiring_review:
+            review_reasons.append("feature_suitability")
+
+        if class_imbalance_detected is True:
+            review_reasons.append("class_imbalance")
+
+        if leakage_level in {"medium", "high"}:
+            review_reasons.append("data_leakage")
+
+        status = "review" if review_reasons else "ready"
+
+        return {
+            "status": status,
+            "review_reasons": review_reasons,
+            "features_requiring_review": len(features_requiring_review),
+            "class_imbalance_detected": class_imbalance_detected,
+            "leakage_risk_level": leakage_level,
+        }
+
     def assess(self) -> Dict[str, Any]:
         """
-        Run the foundational TrustLens AI readiness assessment.
+        Run the integrated TrustLens AI readiness assessment.
 
         Returns
         -------
         dict
-            Structured readiness information that later Phase 4
-            components can extend.
+            Structured readiness information combining foundational
+            dataset information with feature suitability, class
+            imbalance, leakage risk, and an integrated summary.
         """
+        feature_suitability = self.feature_suitability_analysis()
+        class_imbalance = self.class_imbalance_analysis()
+        leakage_risk = self.leakage_risk_analysis()
+
         return {
             "dataset": {
                 "rows": self.row_count,
@@ -172,4 +297,12 @@ class AIReadinessAssessor:
             "feature_columns": self.feature_columns,
             "feature_types": self.feature_type_summary(),
             "missing_values": self.missing_value_summary(),
+            "feature_suitability": feature_suitability,
+            "class_imbalance": class_imbalance,
+            "leakage_risk": leakage_risk,
+            "readiness_summary": self.readiness_summary(
+                feature_suitability,
+                class_imbalance,
+                leakage_risk,
+            ),
         }
