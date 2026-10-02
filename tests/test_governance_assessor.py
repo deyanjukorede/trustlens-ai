@@ -489,3 +489,121 @@ def test_metadata_integration_preserves_existing_governance_sections(sample_data
     assert "sensitive_data" in report
     assert "privacy_risk" in report
     assert "metadata_completeness" in report
+
+
+def test_governance_controls_analysis_without_controls(sample_data):
+    """Governance-controls analysis should be None when controls are not supplied."""
+    assessor = DataGovernanceAssessor(sample_data)
+
+    analysis = assessor.governance_controls_analysis()
+
+    assert analysis is None
+
+
+def test_governance_controls_analysis_with_complete_controls(sample_data):
+    """Governance-controls analysis should assess supplied controls."""
+    governance_controls = {
+        "data_owner": "Customer Operations",
+        "approved_purpose": "Customer risk assessment",
+        "data_classification": "Confidential",
+        "access_control": True,
+        "retention_policy": "7 years",
+        "review_process": "Annual governance review",
+        "accountability": "Head of Data",
+    }
+
+    assessor = DataGovernanceAssessor(
+        sample_data,
+        governance_controls=governance_controls,
+    )
+    analysis = assessor.governance_controls_analysis()
+
+    assert analysis is not None
+    assert analysis["controls_assessed"] == 7
+    assert analysis["controls_implemented"] == 7
+    assert analysis["controls_missing"] == 0
+    assert analysis["governance_controls_score"] == 100.0
+
+
+def test_governance_controls_analysis_with_partial_controls(sample_data):
+    """Governance-controls analysis should identify missing controls."""
+    governance_controls = {
+        "data_owner": "Customer Operations",
+        "approved_purpose": "Customer risk assessment",
+        "data_classification": "Confidential",
+        "access_control": True,
+    }
+
+    assessor = DataGovernanceAssessor(
+        sample_data,
+        governance_controls=governance_controls,
+    )
+    analysis = assessor.governance_controls_analysis()
+
+    assert analysis is not None
+    assert analysis["controls_assessed"] == 7
+    assert analysis["controls_implemented"] == 4
+    assert analysis["controls_missing"] == 3
+    assert analysis["governance_controls_score"] == 57.14
+
+def test_assess_contains_governance_controls_when_supplied(sample_data):
+    """Complete governance assessment should include governance controls."""
+    governance_controls = {
+        "data_owner": "Customer Operations",
+        "approved_purpose": "Customer risk assessment",
+        "data_classification": "Confidential",
+        "access_control": True,
+        "retention_policy": "7 years",
+        "review_process": "Annual governance review",
+        "accountability": "Head of Data",
+    }
+
+    assessor = DataGovernanceAssessor(
+        sample_data,
+        governance_controls=governance_controls,
+    )
+    report = assessor.assess()
+
+    assert "governance_controls" in report
+    assert report["governance_controls"] is not None
+    assert (
+        report["governance_controls"]
+        == assessor.governance_controls_analysis()
+    )
+
+
+def test_assess_governance_controls_is_none_without_controls(sample_data):
+    """Governance assessment should remain compatible without controls."""
+    assessor = DataGovernanceAssessor(sample_data)
+    report = assessor.assess()
+
+    assert "governance_controls" in report
+    assert report["governance_controls"] is None
+
+
+def test_governance_controls_integration_preserves_existing_sections(
+    sample_data,
+):
+    """Governance-controls integration should preserve existing report sections."""
+    governance_controls = {
+        "data_owner": "Customer Operations",
+        "approved_purpose": "Customer risk assessment",
+        "data_classification": "Confidential",
+        "access_control": True,
+        "retention_policy": "7 years",
+        "review_process": "Annual governance review",
+        "accountability": "Head of Data",
+    }
+
+    assessor = DataGovernanceAssessor(
+        sample_data,
+        governance_controls=governance_controls,
+    )
+    report = assessor.assess()
+
+    assert "dataset" in report
+    assert "column_inventory" in report
+    assert "sensitive_data" in report
+    assert "privacy_risk" in report
+    assert "metadata_completeness" in report
+    assert "governance_controls" in report
