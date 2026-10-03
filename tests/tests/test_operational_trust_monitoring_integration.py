@@ -288,14 +288,14 @@ def test_monitoring_coexists_with_drift_review():
     reference_data = pd.DataFrame(
         {
             "record_id": [1, 2, 3, 4],
-            "feature": [10, 10, 10, 10],
+            "feature": [10, 20, 30, 40],
         }
     )
 
     data = pd.DataFrame(
         {
-            "record_id": [5, 6, 7, 8],
-            "feature": [30, 30, 30, 30],
+            "record_id": [1, 2, 3, 4],
+            "feature": [30, 60, 90, 120],
         }
     )
 
