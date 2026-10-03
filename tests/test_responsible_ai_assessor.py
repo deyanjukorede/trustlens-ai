@@ -156,6 +156,92 @@ def test_assessor_rejects_invalid_disparate_impact_threshold():
         )
 
 
+def test_assessor_rejects_invalid_representation_threshold():
+    """Representation threshold should be within the supported range."""
+    data = pd.DataFrame(
+        {
+            "group": ["A", "B"],
+            "target": [1, 0],
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="representation_threshold",
+    ):
+        ResponsibleAIAssessor(
+            data,
+            target_column="target",
+            sensitive_attributes=["group"],
+            representation_threshold=0,
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="representation_threshold",
+    ):
+        ResponsibleAIAssessor(
+            data,
+            target_column="target",
+            sensitive_attributes=["group"],
+            representation_threshold=1.1,
+        )
+
+
+def test_assessor_rejects_invalid_outcome_ratio_threshold():
+    """Outcome-ratio threshold should be within the supported range."""
+    data = pd.DataFrame(
+        {
+            "group": ["A", "B"],
+            "target": [1, 0],
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="outcome_ratio_threshold",
+    ):
+        ResponsibleAIAssessor(
+            data,
+            target_column="target",
+            sensitive_attributes=["group"],
+            outcome_ratio_threshold=0,
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="outcome_ratio_threshold",
+    ):
+        ResponsibleAIAssessor(
+            data,
+            target_column="target",
+            sensitive_attributes=["group"],
+            outcome_ratio_threshold=1.1,
+        )
+
+
+def test_assessor_rejects_invalid_minimum_group_size():
+    """Minimum group size should be a positive integer."""
+    data = pd.DataFrame(
+        {
+            "group": ["A", "B"],
+            "target": [1, 0],
+        }
+    )
+
+    for value in [0, -1, 2.5, True]:
+        with pytest.raises(
+            ValueError,
+            match="minimum_group_size",
+        ):
+            ResponsibleAIAssessor(
+                data,
+                target_column="target",
+                sensitive_attributes=["group"],
+                minimum_group_size=value,
+            )
+
+
 def test_assessment_context_with_complete_information():
     """Context should identify available Responsible AI inputs."""
     data = pd.DataFrame(
@@ -370,9 +456,7 @@ def test_multiple_sensitive_attributes_receive_fairness_analysis():
     data = pd.DataFrame(
         {
             "group": ["A"] * 10 + ["B"] * 10,
-            "region": (
-                ["north", "south"] * 10
-            ),
+            "region": ["north", "south"] * 10,
             "prediction": (
                 [1] * 8
                 + [0] * 2
@@ -525,6 +609,239 @@ def test_no_fairness_disparity_produces_no_review_indicator():
     assert summary["review_reasons"] == []
 
 
+def test_bias_indicators_not_applicable_without_target():
+    """Bias analysis should be unavailable without observed outcomes."""
+    data = pd.DataFrame(
+        {
+            "group": ["A", "A", "B", "B"],
+            "prediction": [1, 0, 1, 0],
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        prediction_column="prediction",
+        sensitive_attributes=["group"],
+    )
+
+    result = assessor.bias_indicator_analysis()
+
+    assert result["applicable"] is False
+    assert result["attributes"] == {}
+    assert result["review_required"] is False
+    assert result["attributes_requiring_review"] == []
+
+
+def test_bias_indicators_not_applicable_without_sensitive_attributes():
+    """Bias analysis should require at least one sensitive attribute."""
+    data = pd.DataFrame(
+        {
+            "feature": [10, 20, 30, 40],
+            "target": [1, 0, 1, 0],
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+    )
+
+    result = assessor.bias_indicator_analysis()
+
+    assert result["applicable"] is False
+    assert result["attributes"] == {}
+    assert result["review_required"] is False
+    assert result["attributes_requiring_review"] == []
+
+
+def test_bias_indicators_are_integrated_for_single_attribute():
+    """Integrated assessor should analyse observed outcomes by group."""
+    data = pd.DataFrame(
+        {
+            "group": ["A"] * 10 + ["B"] * 10,
+            "target": (
+                [1] * 8
+                + [0] * 2
+                + [1] * 4
+                + [0] * 6
+            ),
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        sensitive_attributes=["group"],
+        minimum_group_size=5,
+    )
+
+    result = assessor.bias_indicator_analysis()
+
+    assert result["applicable"] is True
+    assert result["attributes_analyzed"] == 1
+    assert "group" in result["attributes"]
+
+    group_result = result["attributes"]["group"]
+
+    assert group_result["reference_group"] == "A"
+
+    assert (
+        group_result["outcome_comparisons"]["B"][
+            "outcome_rate_ratio"
+        ]
+        == 0.5
+    )
+
+    assert (
+        group_result["outcome_comparisons"]["B"][
+            "outcome_disparity"
+        ]
+        is True
+    )
+
+    assert result["attributes_requiring_review"] == ["group"]
+    assert result["review_required"] is True
+
+
+def test_bias_analysis_supports_multiple_sensitive_attributes():
+    """Each sensitive attribute should receive bias analysis."""
+    data = pd.DataFrame(
+        {
+            "group": ["A"] * 10 + ["B"] * 10,
+            "region": ["north", "south"] * 10,
+            "target": (
+                [1] * 8
+                + [0] * 2
+                + [1] * 4
+                + [0] * 6
+            ),
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        sensitive_attributes=["group", "region"],
+        minimum_group_size=5,
+    )
+
+    result = assessor.bias_indicator_analysis()
+
+    assert result["applicable"] is True
+    assert result["attributes_analyzed"] == 2
+    assert "group" in result["attributes"]
+    assert "region" in result["attributes"]
+
+
+def test_bias_thresholds_flow_into_integrated_analysis():
+    """Configured bias thresholds should reach specialised analyzers."""
+    data = pd.DataFrame(
+        {
+            "group": ["A"] * 18 + ["B"] * 2,
+            "target": (
+                [1] * 14
+                + [0] * 4
+                + [0, 0]
+            ),
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        sensitive_attributes=["group"],
+        representation_threshold=0.20,
+        outcome_ratio_threshold=0.90,
+        minimum_group_size=5,
+    )
+
+    result = assessor.bias_indicator_analysis()
+
+    assert result["representation_threshold"] == 0.20
+    assert result["outcome_ratio_threshold"] == 0.90
+    assert result["minimum_group_size"] == 5
+
+    group_result = result["attributes"]["group"]
+
+    assert group_result["group_metrics"]["B"]["underrepresented"] is True
+    assert group_result["group_metrics"]["B"]["small_group"] is True
+
+
+def test_bias_review_flows_into_responsible_ai_summary():
+    """Bias indicators should contribute to the integrated summary."""
+    data = pd.DataFrame(
+        {
+            "group": ["A"] * 10 + ["B"] * 10,
+            "target": (
+                [1] * 8
+                + [0] * 2
+                + [1] * 4
+                + [0] * 6
+            ),
+        }
+    )
+
+    report = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        sensitive_attributes=["group"],
+        minimum_group_size=5,
+    ).assess()
+
+    bias = report["bias_indicators"]
+    summary = report["responsible_ai_summary"]
+
+    assert bias["applicable"] is True
+    assert bias["review_required"] is True
+
+    assert summary["status"] == "review"
+    assert summary["review_required"] is True
+    assert "bias_indicators" in summary["review_reasons"]
+
+    assert (
+        summary["bias_attributes_requiring_review"]
+        == ["group"]
+    )
+
+
+def test_fairness_and_bias_can_both_require_review():
+    """Prediction and observed-outcome disparities remain distinct."""
+    data = pd.DataFrame(
+        {
+            "group": ["A"] * 10 + ["B"] * 10,
+            "target": (
+                [1] * 8
+                + [0] * 2
+                + [1] * 4
+                + [0] * 6
+            ),
+            "prediction": (
+                [1] * 9
+                + [0]
+                + [1] * 3
+                + [0] * 7
+            ),
+        }
+    )
+
+    report = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        prediction_column="prediction",
+        sensitive_attributes=["group"],
+        minimum_group_size=5,
+    ).assess()
+
+    assert report["group_fairness"]["review_required"] is True
+    assert report["bias_indicators"]["review_required"] is True
+
+    summary = report["responsible_ai_summary"]
+
+    assert "group_fairness" in summary["review_reasons"]
+    assert "bias_indicators" in summary["review_reasons"]
+    assert summary["review_required"] is True
+
+
 def test_assess_returns_expected_structure():
     """Integrated assessment should return expected sections."""
     data = pd.DataFrame(
@@ -554,6 +871,7 @@ def test_assess_returns_expected_structure():
         "sensitive_attribute_summary",
         "analysis_availability",
         "group_fairness",
+        "bias_indicators",
         "responsible_ai_summary",
     }
 
@@ -569,10 +887,18 @@ def test_assess_returns_expected_structure():
     assert report["sensitive_attributes"] == ["group"]
 
     assert report["group_fairness"]["applicable"] is True
+    assert report["bias_indicators"]["applicable"] is True
 
     assert (
         report["responsible_ai_summary"][
             "group_fairness_applicable"
+        ]
+        is True
+    )
+
+    assert (
+        report["responsible_ai_summary"][
+            "bias_indicators_applicable"
         ]
         is True
     )
@@ -584,14 +910,17 @@ def test_multiple_sensitive_attributes_are_supported():
         {
             "group": ["A", "A", "B", "B"],
             "region": ["north", "south", "north", "south"],
+            "target": [0, 1, 0, 1],
             "prediction": [0, 1, 1, 0],
         }
     )
 
     assessor = ResponsibleAIAssessor(
         data,
+        target_column="target",
         prediction_column="prediction",
         sensitive_attributes=["group", "region"],
+        minimum_group_size=1,
     )
 
     assert assessor.sensitive_attribute_count == 2
@@ -608,3 +937,10 @@ def test_multiple_sensitive_attributes_are_supported():
     assert fairness["attributes_analyzed"] == 2
     assert "group" in fairness["attributes"]
     assert "region" in fairness["attributes"]
+
+    bias = assessor.bias_indicator_analysis()
+
+    assert bias["applicable"] is True
+    assert bias["attributes_analyzed"] == 2
+    assert "group" in bias["attributes"]
+    assert "region" in bias["attributes"]
