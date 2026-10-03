@@ -104,6 +104,7 @@ def test_numeric_drift_propagates_to_operational_summary():
         "review_reasons": [
             "data_drift",
             "reproducibility",
+            "monitoring_readiness",
         ],
     }
 
@@ -164,6 +165,7 @@ def test_categorical_drift_propagates_to_operational_summary():
         "review_reasons": [
             "data_drift",
             "reproducibility",
+            "monitoring_readiness",
         ],
     }
 
@@ -239,6 +241,7 @@ def test_incompatible_feature_type_propagates_to_summary():
         "review_reasons": [
             "data_drift",
             "reproducibility",
+            "monitoring_readiness",
         ],
     }
 
