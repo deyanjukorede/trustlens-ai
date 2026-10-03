@@ -394,7 +394,7 @@ def test_group_fairness_availability():
         is False
     )
 
-    assert availability["explainability"]["available"] is True
+    assert availability["explainability"]["available"] is False
 
 
 def test_prediction_performance_fairness_availability():
@@ -424,7 +424,7 @@ def test_prediction_performance_fairness_availability():
         is True
     )
 
-    assert availability["explainability"]["available"] is True
+    assert availability["explainability"]["available"] is False
 
 
 def test_group_fairness_not_applicable_without_predictions():
@@ -1381,6 +1381,7 @@ def test_assess_returns_expected_structure():
         "group_fairness",
         "bias_indicators",
         "prediction_performance_fairness",
+        "explainability",
         "responsible_ai_summary",
     }
 
@@ -1422,6 +1423,23 @@ def test_assess_returns_expected_structure():
             "prediction_performance_fairness_applicable"
         ]
         is True
+    )
+
+
+    assert report["explainability"]["applicable"] is True
+
+    assert report["explainability"]["candidate_features"] == [
+        "feature"
+    ]
+
+    assert (
+        report["responsible_ai_summary"]["explainability_applicable"]
+        is True
+    )
+
+    assert (
+        report["responsible_ai_summary"]["explanation_readiness_status"]
+        == "ready_for_explanation_analysis"
     )
 
 
@@ -1474,3 +1492,375 @@ def test_multiple_sensitive_attributes_are_supported():
     assert performance["attributes_analyzed"] == 2
     assert "group" in performance["attributes"]
     assert "region" in performance["attributes"]
+
+
+def test_assessor_rejects_invalid_high_cardinality_threshold():
+    """High-cardinality threshold should be a positive integer."""
+    data = pd.DataFrame(
+        {
+            "feature": ["A", "B"],
+        }
+    )
+
+    for value in [0, -1, 2.5, True]:
+        with pytest.raises(
+            ValueError,
+            match="high_cardinality_threshold",
+        ):
+            ResponsibleAIAssessor(
+                data,
+                high_cardinality_threshold=value,
+            )
+
+
+def test_assessor_rejects_invalid_missingness_threshold():
+    """Explainability missingness threshold should be between zero and one."""
+    data = pd.DataFrame(
+        {
+            "feature": [1, 2],
+        }
+    )
+
+    for value in [-0.01, 1.01]:
+        with pytest.raises(
+            ValueError,
+            match="missingness_threshold",
+        ):
+            ResponsibleAIAssessor(
+                data,
+                missingness_threshold=value,
+            )
+
+
+def test_explainability_threshold_boundaries_are_allowed():
+    """Valid explainability threshold boundaries should be preserved."""
+    data = pd.DataFrame(
+        {
+            "feature": [1, 2],
+        }
+    )
+
+    zero = ResponsibleAIAssessor(
+        data,
+        missingness_threshold=0,
+        high_cardinality_threshold=1,
+    )
+
+    one = ResponsibleAIAssessor(
+        data,
+        missingness_threshold=1,
+    )
+
+    assert zero.missingness_threshold == 0.0
+    assert zero.high_cardinality_threshold == 1
+    assert one.missingness_threshold == 1.0
+
+
+def test_explainability_is_available_without_predictions():
+    """Structural explainability readiness should not require predictions."""
+    data = pd.DataFrame(
+        {
+            "age": [25, 35, 45, 55],
+            "income": [30000, 40000, 50000, 60000],
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(data)
+
+    availability = assessor.analysis_availability()
+    result = assessor.explainability_analysis()
+
+    assert availability["explainability"]["available"] is True
+    assert availability["explainability"]["requires"] == [
+        "candidate_explanatory_features"
+    ]
+
+    assert result["applicable"] is True
+    assert result["candidate_features"] == ["age", "income"]
+
+    assert (
+        result["explanation_readiness"]["status"]
+        == "ready_for_explanation_analysis"
+    )
+
+
+def test_explainability_excludes_context_columns():
+    """Target, prediction and sensitive attributes should be excluded."""
+    data = pd.DataFrame(
+        {
+            "age": [25, 35, 45, 55],
+            "income": [30000, 40000, 50000, 60000],
+            "group": ["A", "A", "B", "B"],
+            "target": [1, 0, 1, 0],
+            "prediction": [1, 0, 0, 0],
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        prediction_column="prediction",
+        sensitive_attributes=["group"],
+    )
+
+    assert assessor.explainability_candidate_features() == [
+        "age",
+        "income",
+    ]
+
+    result = assessor.explainability_analysis()
+
+    assert result["applicable"] is True
+
+    assert result["excluded_columns"] == [
+        "target",
+        "prediction",
+        "group",
+    ]
+
+    assert result["candidate_features"] == [
+        "age",
+        "income",
+    ]
+
+
+def test_explainability_thresholds_flow_into_integrated_analysis():
+    """Configured explainability thresholds should reach the analyzer."""
+    data = pd.DataFrame(
+        {
+            "category": ["A", "B", "C", "D"],
+            "feature": [1, None, None, 4],
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        high_cardinality_threshold=3,
+        missingness_threshold=0.50,
+    )
+
+    result = assessor.explainability_analysis()
+
+    assert result["high_cardinality_threshold"] == 3
+    assert result["missingness_threshold"] == 0.50
+
+    assert (
+        result["feature_analysis"]["category"]["high_cardinality"]
+        is True
+    )
+
+    assert (
+        result["feature_analysis"]["feature"]["high_missingness"]
+        is True
+    )
+
+
+def test_explainability_review_flows_into_responsible_ai_summary():
+    """Explainability indicators should contribute to integrated review."""
+    data = pd.DataFrame(
+        {
+            "age": [25, 35, 45, 55],
+            "constant": [1, 1, 1, 1],
+        }
+    )
+
+    report = ResponsibleAIAssessor(data).assess()
+
+    explainability = report["explainability"]
+    summary = report["responsible_ai_summary"]
+
+    assert explainability["applicable"] is True
+    assert explainability["review_required"] is True
+
+    assert (
+        explainability["explanation_readiness"]["status"]
+        == "review"
+    )
+
+    assert summary["status"] == "review"
+    assert summary["review_required"] is True
+    assert "explainability" in summary["review_reasons"]
+
+    assert (
+        summary["explainability_features_requiring_review"]
+        == ["constant"]
+    )
+
+    assert summary["explanation_readiness_status"] == "review"
+
+
+def test_clean_explainability_does_not_add_review_reason():
+    """Clean explanatory features should not add an explainability reason."""
+    data = pd.DataFrame(
+        {
+            "age": [25, 35, 45, 55],
+            "income": [30000, 40000, 50000, 60000],
+        }
+    )
+
+    report = ResponsibleAIAssessor(data).assess()
+
+    explainability = report["explainability"]
+    summary = report["responsible_ai_summary"]
+
+    assert explainability["review_required"] is False
+
+    assert (
+        explainability["explanation_readiness"]["status"]
+        == "ready_for_explanation_analysis"
+    )
+
+    assert "explainability" not in summary["review_reasons"]
+
+    assert (
+        summary["explainability_features_requiring_review"]
+        == []
+    )
+
+    assert summary["status"] == "no_review_indicators"
+    assert summary["review_required"] is False
+
+
+def test_no_candidate_features_are_reported_as_insufficient():
+    """Context-only data should expose insufficient explanation readiness."""
+    data = pd.DataFrame(
+        {
+            "group": ["A", "A", "B", "B"],
+            "target": [1, 0, 1, 0],
+            "prediction": [1, 0, 0, 0],
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        prediction_column="prediction",
+        sensitive_attributes=["group"],
+        minimum_group_size=1,
+    )
+
+    availability = assessor.analysis_availability()
+    report = assessor.assess()
+
+    explainability = report["explainability"]
+    summary = report["responsible_ai_summary"]
+
+    assert availability["explainability"]["available"] is False
+
+    assert explainability["applicable"] is False
+    assert explainability["candidate_features"] == []
+    assert explainability["candidate_feature_count"] == 0
+
+    assert (
+        explainability["explanation_readiness"]["status"]
+        == "insufficient_features"
+    )
+
+    assert explainability["review_required"] is True
+    assert "explainability" in summary["review_reasons"]
+
+    assert summary["explainability_applicable"] is False
+
+    assert (
+        summary["explanation_readiness_status"]
+        == "insufficient_features"
+    )
+
+
+def test_explainability_supports_multiple_sensitive_attributes():
+    """All configured sensitive attributes should be excluded as context."""
+    data = pd.DataFrame(
+        {
+            "group": ["A", "A", "B", "B"],
+            "region": ["north", "south", "north", "south"],
+            "age": [25, 35, 45, 55],
+            "income": [30000, 40000, 50000, 60000],
+            "target": [0, 1, 0, 1],
+            "prediction": [0, 1, 1, 0],
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        prediction_column="prediction",
+        sensitive_attributes=["group", "region"],
+        minimum_group_size=1,
+    )
+
+    result = assessor.explainability_analysis()
+
+    assert result["applicable"] is True
+
+    assert result["excluded_columns"] == [
+        "target",
+        "prediction",
+        "group",
+        "region",
+    ]
+
+    assert result["candidate_features"] == [
+        "age",
+        "income",
+    ]
+
+    assert "group" not in result["feature_analysis"]
+    assert "region" not in result["feature_analysis"]
+
+
+def test_all_four_responsible_ai_layers_can_contribute_to_review():
+    """All implemented Responsible AI layers can coexist in review."""
+    data = pd.DataFrame(
+        {
+            "group": ["A"] * 10 + ["B"] * 10,
+            "constant_feature": [1] * 20,
+            "target": (
+                [1] * 8
+                + [0] * 2
+                + [1] * 4
+                + [0] * 6
+            ),
+            "prediction": (
+                [1] * 8
+                + [0] * 2
+                + [1] * 2
+                + [0] * 8
+            ),
+        }
+    )
+
+    report = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        prediction_column="prediction",
+        sensitive_attributes=["group"],
+        minimum_group_size=5,
+    ).assess()
+
+    assert report["group_fairness"]["review_required"] is True
+    assert report["bias_indicators"]["review_required"] is True
+
+    assert (
+        report["prediction_performance_fairness"]["review_required"]
+        is True
+    )
+
+    assert report["explainability"]["review_required"] is True
+
+    summary = report["responsible_ai_summary"]
+
+    assert "group_fairness" in summary["review_reasons"]
+    assert "bias_indicators" in summary["review_reasons"]
+
+    assert (
+        "prediction_performance_fairness"
+        in summary["review_reasons"]
+    )
+
+    assert "explainability" in summary["review_reasons"]
+
+    assert (
+        summary["explainability_features_requiring_review"]
+        == ["constant_feature"]
+    )
+
