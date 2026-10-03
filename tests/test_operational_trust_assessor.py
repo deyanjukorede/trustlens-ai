@@ -210,11 +210,11 @@ def test_non_drift_foundation_analyses_are_available():
 
 
 def test_assess_returns_integrated_structure_without_reference_data():
-    """Assessment should expose the integrated Operational Trust structure."""
+    """Assessment should expose integrated Operational Trust components."""
     data = pd.DataFrame(
         {
             "feature_a": [1, 2, 3],
-            "feature_b": ["A", "B", "C"],
+            "feature_b": ["A", "B", "A"],
         }
     )
 
@@ -226,6 +226,7 @@ def test_assess_returns_integrated_structure_without_reference_data():
         "assessment_context",
         "analysis_availability",
         "data_drift",
+        "data_stability",
         "operational_trust_summary",
     }
 
@@ -236,6 +237,9 @@ def test_assess_returns_integrated_structure_without_reference_data():
 
     assert report["reference_dataset"] is None
     assert report["data_drift"] is None
+    assert report["data_stability"] is not None
+
+    assert report["data_stability"]["review_required"] is False
 
     assert report["operational_trust_summary"] == {
         "status": "no_review_indicators",
