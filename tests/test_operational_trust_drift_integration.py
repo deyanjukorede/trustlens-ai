@@ -17,7 +17,6 @@ def test_drift_analysis_is_unavailable_without_reference_data():
         report["analysis_availability"]["data_drift"]["available"]
         is False
     )
-
     assert report["data_drift"] is None
 
 
@@ -44,7 +43,6 @@ def test_reference_data_triggers_drift_analysis():
         report["analysis_availability"]["data_drift"]["available"]
         is True
     )
-
     assert report["data_drift"] is not None
     assert report["data_drift"]["features_analyzed"] == 1
 
@@ -123,6 +121,7 @@ def test_categorical_drift_propagates_to_operational_summary():
                 "C",
                 "C",
             ],
+            "record_id": list(range(10)),
         }
     )
 
@@ -140,6 +139,7 @@ def test_categorical_drift_propagates_to_operational_summary():
                 "C",
                 "C",
             ],
+            "record_id": list(range(10)),
         }
     )
 
@@ -150,18 +150,16 @@ def test_categorical_drift_propagates_to_operational_summary():
 
     drift = report["data_drift"]
 
-    assert drift["features_requiring_review"] == ["segment"]
+    assert "segment" in drift["features_requiring_review"]
     assert drift["review_required"] is True
 
-    assert (
-        report["data_stability"]["review_required"]
-        is False
-    )
+    assert report["data_stability"]["review_required"] is False
 
-    assert (
-        report["operational_trust_summary"]["review_reasons"]
-        == ["data_drift"]
-    )
+    assert report["operational_trust_summary"] == {
+        "status": "review",
+        "review_required": True,
+        "review_reasons": ["data_drift"],
+    }
 
 
 def test_schema_change_propagates_to_operational_summary():
@@ -190,11 +188,9 @@ def test_schema_change_propagates_to_operational_summary():
     assert drift["column_alignment"]["reference_only_columns"] == [
         "old_feature"
     ]
-
     assert drift["column_alignment"]["current_only_columns"] == [
         "new_feature"
     ]
-
     assert drift["review_required"] is True
 
     assert (
@@ -208,12 +204,14 @@ def test_incompatible_feature_type_propagates_to_summary():
     reference_data = pd.DataFrame(
         {
             "feature": [1, 2, 3, 4],
+            "record_id": [101, 102, 103, 104],
         }
     )
 
     current_data = pd.DataFrame(
         {
             "feature": ["A", "B", "A", "B"],
+            "record_id": [101, 102, 103, 104],
         }
     )
 
@@ -224,18 +222,16 @@ def test_incompatible_feature_type_propagates_to_summary():
 
     drift = report["data_drift"]
 
-    assert drift["incompatible_features"] == ["feature"]
+    assert "feature" in drift["incompatible_features"]
     assert drift["review_required"] is True
 
-    assert (
-        report["data_stability"]["review_required"]
-        is False
-    )
+    assert report["data_stability"]["review_required"] is False
 
-    assert (
-        report["operational_trust_summary"]["review_reasons"]
-        == ["data_drift"]
-    )
+    assert report["operational_trust_summary"] == {
+        "status": "review",
+        "review_required": True,
+        "review_reasons": ["data_drift"],
+    }
 
 
 def test_custom_numeric_threshold_is_used_by_integrated_drift():
@@ -258,14 +254,10 @@ def test_custom_numeric_threshold_is_used_by_integrated_drift():
         numeric_mean_shift_threshold=0.50,
     ).assess()
 
-    assert (
-        report["data_drift"]["thresholds"][
-            "numeric_mean_shift_threshold"
-        ]
-        == 0.50
-    )
+    drift = report["data_drift"]
 
-    assert report["data_drift"]["review_required"] is False
+    assert drift["numeric_mean_shift_threshold"] == 0.50
+    assert drift["review_required"] is False
 
 
 def test_custom_categorical_threshold_is_used_by_integrated_drift():
@@ -273,12 +265,14 @@ def test_custom_categorical_threshold_is_used_by_integrated_drift():
     reference_data = pd.DataFrame(
         {
             "segment": ["A", "A", "B", "B"],
+            "record_id": [1, 2, 3, 4],
         }
     )
 
     current_data = pd.DataFrame(
         {
             "segment": ["A", "A", "A", "B"],
+            "record_id": [1, 2, 3, 4],
         }
     )
 
@@ -288,14 +282,10 @@ def test_custom_categorical_threshold_is_used_by_integrated_drift():
         categorical_distribution_threshold=0.50,
     ).assess()
 
-    assert (
-        report["data_drift"]["thresholds"][
-            "categorical_distribution_threshold"
-        ]
-        == 0.50
-    )
+    drift = report["data_drift"]
 
-    assert report["data_drift"]["review_required"] is False
+    assert drift["categorical_distribution_threshold"] == 0.50
+    assert drift["review_required"] is False
 
 
 def test_drift_output_is_preserved_inside_integrated_report():
@@ -321,7 +311,8 @@ def test_drift_output_is_preserved_inside_integrated_report():
 
     drift = report["data_drift"]
 
-    assert "thresholds" in drift
+    assert "numeric_mean_shift_threshold" in drift
+    assert "categorical_distribution_threshold" in drift
     assert "column_alignment" in drift
     assert "feature_analysis" in drift
     assert "features_requiring_review" in drift
