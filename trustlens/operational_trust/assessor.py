@@ -2,9 +2,9 @@
 Integrated Operational Trust assessment for TrustLens AI.
 
 This module provides the central orchestration layer for Operational
-Trust analysis. Individual analytical components such as data drift,
-data stability, reproducibility, and monitoring readiness are integrated
-here as they become available.
+Trust analysis. It integrates data drift, data stability,
+reproducibility readiness, and monitoring readiness into a transparent
+dimension-level assessment.
 
 Operational Trust indicators are intended to support investigation and
 human review. They do not independently establish that a data or AI
@@ -341,6 +341,98 @@ class OperationalTrustAssessor:
 
         return analyzer.assess()
 
+    def _build_operational_trust_overview(
+        self,
+        data_drift: Optional[Dict[str, Any]],
+        data_stability: Dict[str, Any],
+        reproducibility: Dict[str, Any],
+        monitoring_readiness: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Build a transparent dimension-level Operational Trust overview.
+
+        The overview summarises analysis availability and review
+        indicators without combining them into a numerical trust score.
+        """
+        dimensions = {
+            "data_drift": {
+                "available": data_drift is not None,
+                "review_required": (
+                    data_drift["review_required"]
+                    if data_drift is not None
+                    else None
+                ),
+            },
+            "data_stability": {
+                "available": True,
+                "review_required": data_stability["review_required"],
+            },
+            "reproducibility": {
+                "available": True,
+                "review_required": reproducibility["review_required"],
+            },
+            "monitoring_readiness": {
+                "available": True,
+                "review_required": (
+                    monitoring_readiness["review_required"]
+                ),
+            },
+        }
+
+        available_dimensions = [
+            name
+            for name, result in dimensions.items()
+            if result["available"]
+        ]
+
+        unavailable_dimensions = [
+            name
+            for name, result in dimensions.items()
+            if not result["available"]
+        ]
+
+        dimensions_requiring_review = [
+            name
+            for name, result in dimensions.items()
+            if (
+                result["available"]
+                and result["review_required"] is True
+            )
+        ]
+
+        review_required = bool(dimensions_requiring_review)
+
+        return {
+            "dimensions": dimensions,
+            "total_dimensions": len(dimensions),
+            "available_dimensions": available_dimensions,
+            "unavailable_dimensions": unavailable_dimensions,
+            "available_dimension_count": len(available_dimensions),
+            "dimensions_requiring_review": (
+                dimensions_requiring_review
+            ),
+            "review_dimension_count": len(
+                dimensions_requiring_review
+            ),
+            "review_required": review_required,
+            "interpretation": (
+                "One or more Operational Trust dimensions contain "
+                "indicators that require human review."
+                if review_required
+                else (
+                    "No review indicators were identified in the "
+                    "Operational Trust dimensions that were available "
+                    "for assessment."
+                )
+            ),
+            "scope_note": (
+                "This overview summarises available evidence and "
+                "review indicators. It does not independently establish "
+                "that the assessed data or AI system is trustworthy, "
+                "reliable, production-ready, or compliant."
+            ),
+        }
+
     def assess(self) -> Dict[str, Any]:
         """Return the integrated Operational Trust assessment."""
         data_drift = self._assess_data_drift()
@@ -373,6 +465,15 @@ class OperationalTrustAssessor:
             else "no_review_indicators"
         )
 
+        operational_trust_overview = (
+            self._build_operational_trust_overview(
+                data_drift=data_drift,
+                data_stability=data_stability,
+                reproducibility=reproducibility,
+                monitoring_readiness=monitoring_readiness,
+            )
+        )
+
         return {
             "dataset": {
                 "rows": self.row_count,
@@ -392,6 +493,7 @@ class OperationalTrustAssessor:
             "data_stability": data_stability,
             "reproducibility": reproducibility,
             "monitoring_readiness": monitoring_readiness,
+            "operational_trust_overview": operational_trust_overview,
             "operational_trust_summary": {
                 "status": status,
                 "review_required": review_required,
