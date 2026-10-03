@@ -101,7 +101,10 @@ def test_numeric_drift_propagates_to_operational_summary():
     assert report["operational_trust_summary"] == {
         "status": "review",
         "review_required": True,
-        "review_reasons": ["data_drift"],
+        "review_reasons": [
+            "data_drift",
+            "reproducibility",
+        ],
     }
 
 
@@ -158,7 +161,10 @@ def test_categorical_drift_propagates_to_operational_summary():
     assert report["operational_trust_summary"] == {
         "status": "review",
         "review_required": True,
-        "review_reasons": ["data_drift"],
+        "review_reasons": [
+            "data_drift",
+            "reproducibility",
+        ],
     }
 
 
@@ -230,7 +236,10 @@ def test_incompatible_feature_type_propagates_to_summary():
     assert report["operational_trust_summary"] == {
         "status": "review",
         "review_required": True,
-        "review_reasons": ["data_drift"],
+        "review_reasons": [
+            "data_drift",
+            "reproducibility",
+        ],
     }
 
 
