@@ -209,8 +209,8 @@ def test_non_drift_foundation_analyses_are_available():
     assert availability["monitoring_readiness"]["available"] is True
 
 
-def test_assess_returns_foundational_structure():
-    """Foundational assessment should return expected sections."""
+def test_assess_returns_integrated_structure_without_reference_data():
+    """Assessment should expose the integrated Operational Trust structure."""
     data = pd.DataFrame(
         {
             "feature_a": [1, 2, 3],
@@ -225,6 +225,7 @@ def test_assess_returns_foundational_structure():
         "reference_dataset",
         "assessment_context",
         "analysis_availability",
+        "data_drift",
         "operational_trust_summary",
     }
 
@@ -234,9 +235,10 @@ def test_assess_returns_foundational_structure():
     }
 
     assert report["reference_dataset"] is None
+    assert report["data_drift"] is None
 
     assert report["operational_trust_summary"] == {
-        "status": "foundation",
+        "status": "no_review_indicators",
         "review_required": False,
         "review_reasons": [],
     }
