@@ -227,6 +227,7 @@ def test_assess_returns_integrated_structure_without_reference_data():
         "analysis_availability",
         "data_drift",
         "data_stability",
+        "reproducibility",
         "operational_trust_summary",
     }
 
@@ -237,14 +238,18 @@ def test_assess_returns_integrated_structure_without_reference_data():
 
     assert report["reference_dataset"] is None
     assert report["data_drift"] is None
-    assert report["data_stability"] is not None
 
+    assert report["data_stability"] is not None
     assert report["data_stability"]["review_required"] is False
 
+    assert report["reproducibility"] is not None
+    assert report["reproducibility"]["metadata_supplied"] is False
+    assert report["reproducibility"]["review_required"] is True
+
     assert report["operational_trust_summary"] == {
-        "status": "no_review_indicators",
-        "review_required": False,
-        "review_reasons": [],
+        "status": "review",
+        "review_required": True,
+        "review_reasons": ["reproducibility"],
     }
 
 
