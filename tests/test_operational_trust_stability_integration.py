@@ -27,7 +27,10 @@ def test_stability_runs_without_reference_data():
     assert report["operational_trust_summary"] == {
         "status": "review",
         "review_required": True,
-        "review_reasons": ["reproducibility"],
+        "review_reasons": [
+            "reproducibility",
+            "monitoring_readiness",
+        ],
     }
 
 
@@ -56,6 +59,7 @@ def test_high_missingness_propagates_to_operational_trust_summary():
         "review_reasons": [
             "data_stability",
             "reproducibility",
+            "monitoring_readiness",
         ],
     }
 
@@ -80,6 +84,7 @@ def test_constant_feature_propagates_to_operational_trust_summary():
     assert report["operational_trust_summary"]["review_reasons"] == [
         "data_stability",
         "reproducibility",
+        "monitoring_readiness",
     ]
 
 
@@ -289,6 +294,7 @@ def test_drift_and_stability_review_reasons_can_coexist():
             "data_drift",
             "data_stability",
             "reproducibility",
+            "monitoring_readiness",
         ],
     }
 
