@@ -16,6 +16,9 @@ from typing import Any, Dict, Optional
 import pandas as pd
 
 from trustlens.operational_trust.drift import DataDriftAnalyzer
+from trustlens.operational_trust.reproducibility import (
+    ReproducibilityReadinessAnalyzer,
+)
 from trustlens.operational_trust.stability import DataStabilityAnalyzer
 
 
@@ -47,6 +50,14 @@ class OperationalTrustAssessor:
     duplicate_rate_threshold:
         Duplicate-row rate above which duplicate pressure requires
         stability review.
+    reproducibility_metadata:
+        Optional dictionary containing evidence that can support
+        reproducibility assessment, such as dataset version, code
+        version, random seed, environment, source, lineage, and
+        execution identifier.
+    identifier_column:
+        Optional dataset column intended to provide row-level
+        identification for reproducibility analysis.
     """
 
     def __init__(
@@ -59,6 +70,8 @@ class OperationalTrustAssessor:
         near_constant_threshold: float = 0.95,
         high_cardinality_threshold: float = 0.90,
         duplicate_rate_threshold: float = 0.10,
+        reproducibility_metadata: Optional[Dict[str, Any]] = None,
+        identifier_column: Optional[str] = None,
     ) -> None:
         """Initialise the Operational Trust assessor."""
         if not isinstance(data, pd.DataFrame):
@@ -75,6 +88,31 @@ class OperationalTrustAssessor:
 
             if reference_data.empty:
                 raise ValueError("reference_data must not be empty")
+
+        if (
+            reproducibility_metadata is not None
+            and not isinstance(reproducibility_metadata, dict)
+        ):
+            raise TypeError(
+                "reproducibility_metadata must be a dictionary "
+                "when supplied"
+            )
+
+        if identifier_column is not None:
+            if not isinstance(identifier_column, str):
+                raise TypeError(
+                    "identifier_column must be a string"
+                )
+
+            if not identifier_column.strip():
+                raise ValueError(
+                    "identifier_column must not be empty"
+                )
+
+            if identifier_column not in data.columns:
+                raise ValueError(
+                    "identifier_column must exist in data"
+                )
 
         self._validate_threshold(
             "numeric_mean_shift_threshold",
@@ -108,13 +146,19 @@ class OperationalTrustAssessor:
             else None
         )
 
+        self.reproducibility_metadata = (
+            dict(reproducibility_metadata)
+            if reproducibility_metadata is not None
+            else {}
+        )
+        self.identifier_column = identifier_column
+
         self.numeric_mean_shift_threshold = float(
             numeric_mean_shift_threshold
         )
         self.categorical_distribution_threshold = float(
             categorical_distribution_threshold
         )
-
         self.high_missingness_threshold = float(
             high_missingness_threshold
         )
@@ -178,6 +222,10 @@ class OperationalTrustAssessor:
                 if self.reference_data_available
                 else None
             ),
+            "reproducibility_metadata_supplied": bool(
+                self.reproducibility_metadata
+            ),
+            "identifier_column": self.identifier_column,
         }
 
     def analysis_availability(self) -> Dict[str, Dict[str, Any]]:
@@ -194,6 +242,10 @@ class OperationalTrustAssessor:
             "reproducibility": {
                 "available": True,
                 "requires": ["current_data"],
+                "optional_context": [
+                    "reproducibility_metadata",
+                    "identifier_column",
+                ],
             },
             "monitoring_readiness": {
                 "available": True,
@@ -239,10 +291,21 @@ class OperationalTrustAssessor:
 
         return analyzer.assess()
 
+    def _assess_reproducibility(self) -> Dict[str, Any]:
+        """Run reproducibility and reliability readiness analysis."""
+        analyzer = ReproducibilityReadinessAnalyzer(
+            data=self.data,
+            metadata=self.reproducibility_metadata,
+            identifier_column=self.identifier_column,
+        )
+
+        return analyzer.assess()
+
     def assess(self) -> Dict[str, Any]:
         """Return the integrated Operational Trust assessment."""
         data_drift = self._assess_data_drift()
         data_stability = self._assess_data_stability()
+        reproducibility = self._assess_reproducibility()
 
         review_reasons = []
 
@@ -254,6 +317,9 @@ class OperationalTrustAssessor:
 
         if data_stability["review_required"]:
             review_reasons.append("data_stability")
+
+        if reproducibility["review_required"]:
+            review_reasons.append("reproducibility")
 
         review_required = bool(review_reasons)
 
@@ -280,6 +346,7 @@ class OperationalTrustAssessor:
             "analysis_availability": self.analysis_availability(),
             "data_drift": data_drift,
             "data_stability": data_stability,
+            "reproducibility": reproducibility,
             "operational_trust_summary": {
                 "status": status,
                 "review_required": review_required,
