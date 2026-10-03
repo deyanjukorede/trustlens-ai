@@ -40,7 +40,10 @@ def test_reproducibility_runs_without_optional_metadata():
     assert report["operational_trust_summary"] == {
         "status": "review",
         "review_required": True,
-        "review_reasons": ["reproducibility"],
+        "review_reasons": [
+            "reproducibility",
+            "monitoring_readiness",
+        ],
     }
 
 
@@ -67,9 +70,9 @@ def test_complete_metadata_removes_reproducibility_review_reason():
     assert reproducibility["review_required"] is False
 
     assert report["operational_trust_summary"] == {
-        "status": "no_review_indicators",
-        "review_required": False,
-        "review_reasons": [],
+        "status": "review",
+        "review_required": True,
+        "review_reasons": ["monitoring_readiness"],
     }
 
 
@@ -304,6 +307,7 @@ def test_drift_and_reproducibility_review_reasons_can_coexist():
         "review_reasons": [
             "data_drift",
             "reproducibility",
+            "monitoring_readiness",
         ],
     }
 
@@ -328,12 +332,13 @@ def test_stability_and_reproducibility_review_reasons_can_coexist():
         "review_reasons": [
             "data_stability",
             "reproducibility",
+            "monitoring_readiness",
         ],
     }
 
 
 def test_all_three_operational_components_can_require_review():
-    """Drift, stability, and reproducibility findings should coexist."""
+    """Drift, stability, reproducibility, and monitoring can coexist."""
     reference_data = pd.DataFrame(
         {
             "score": [10, 11, 12, 13],
@@ -356,6 +361,7 @@ def test_all_three_operational_components_can_require_review():
     assert report["data_drift"]["review_required"] is True
     assert report["data_stability"]["review_required"] is True
     assert report["reproducibility"]["review_required"] is True
+    assert report["monitoring_readiness"]["review_required"] is True
 
     assert report["operational_trust_summary"] == {
         "status": "review",
@@ -364,12 +370,13 @@ def test_all_three_operational_components_can_require_review():
             "data_drift",
             "data_stability",
             "reproducibility",
+            "monitoring_readiness",
         ],
     }
 
 
 def test_complete_reproducibility_evidence_does_not_hide_other_findings():
-    """Complete reproducibility evidence should not suppress drift."""
+    """Complete reproducibility evidence should not suppress other findings."""
     reference_data = pd.DataFrame(
         {
             "score": [10, 11, 12, 13],
@@ -392,11 +399,15 @@ def test_complete_reproducibility_evidence_does_not_hide_other_findings():
 
     assert report["data_drift"]["review_required"] is True
     assert report["reproducibility"]["review_required"] is False
+    assert report["monitoring_readiness"]["review_required"] is True
 
     assert report["operational_trust_summary"] == {
         "status": "review",
         "review_required": True,
-        "review_reasons": ["data_drift"],
+        "review_reasons": [
+            "data_drift",
+            "monitoring_readiness",
+        ],
     }
 
 
