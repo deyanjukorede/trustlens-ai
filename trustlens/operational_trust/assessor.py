@@ -15,6 +15,8 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 
+from trustlens.operational_trust.drift import DataDriftAnalyzer
+
 
 class OperationalTrustAssessor:
     """
@@ -27,12 +29,19 @@ class OperationalTrustAssessor:
     reference_data:
         Optional reference dataset representing an earlier, baseline,
         training, or otherwise relevant comparison population.
+    numeric_mean_shift_threshold:
+        Relative mean-shift threshold used by numeric drift analysis.
+    categorical_distribution_threshold:
+        Maximum absolute category-proportion change used by categorical
+        drift analysis.
     """
 
     def __init__(
         self,
         data: pd.DataFrame,
         reference_data: Optional[pd.DataFrame] = None,
+        numeric_mean_shift_threshold: float = 0.20,
+        categorical_distribution_threshold: float = 0.20,
     ) -> None:
         """Initialise the Operational Trust assessor."""
         if not isinstance(data, pd.DataFrame):
@@ -50,11 +59,29 @@ class OperationalTrustAssessor:
             if reference_data.empty:
                 raise ValueError("reference_data must not be empty")
 
+        if not 0 <= numeric_mean_shift_threshold <= 1:
+            raise ValueError(
+                "numeric_mean_shift_threshold must be between 0 and 1"
+            )
+
+        if not 0 <= categorical_distribution_threshold <= 1:
+            raise ValueError(
+                "categorical_distribution_threshold must be between 0 and 1"
+            )
+
         self.data = data.copy()
         self.reference_data = (
             reference_data.copy()
             if reference_data is not None
             else None
+        )
+
+        self.numeric_mean_shift_threshold = float(
+            numeric_mean_shift_threshold
+        )
+
+        self.categorical_distribution_threshold = float(
+            categorical_distribution_threshold
         )
 
         self.row_count = int(len(self.data))
@@ -121,13 +148,50 @@ class OperationalTrustAssessor:
             },
         }
 
+    def _assess_data_drift(self) -> Optional[Dict[str, Any]]:
+        """Run data drift analysis when reference data is available."""
+        if not self.reference_data_available:
+            return None
+
+        analyzer = DataDriftAnalyzer(
+            reference_data=self.reference_data,
+            current_data=self.data,
+            numeric_mean_shift_threshold=(
+                self.numeric_mean_shift_threshold
+            ),
+            categorical_distribution_threshold=(
+                self.categorical_distribution_threshold
+            ),
+        )
+
+        return analyzer.assess()
+
     def assess(self) -> Dict[str, Any]:
         """
-        Return the foundational Operational Trust assessment.
+        Return the integrated Operational Trust assessment.
 
-        Specialised analysis results will be added to this structure as
-        Phase 6 components are implemented.
+        Data drift is assessed when a reference dataset is available.
+        Other Operational Trust components are added as Phase 6
+        progresses.
         """
+        data_drift = self._assess_data_drift()
+
+        review_reasons = []
+
+        if (
+            data_drift is not None
+            and data_drift["review_required"]
+        ):
+            review_reasons.append("data_drift")
+
+        review_required = bool(review_reasons)
+
+        status = (
+            "review"
+            if review_required
+            else "no_review_indicators"
+        )
+
         return {
             "dataset": {
                 "rows": self.row_count,
@@ -143,9 +207,10 @@ class OperationalTrustAssessor:
             ),
             "assessment_context": self.assessment_context(),
             "analysis_availability": self.analysis_availability(),
+            "data_drift": data_drift,
             "operational_trust_summary": {
-                "status": "foundation",
-                "review_required": False,
-                "review_reasons": [],
+                "status": status,
+                "review_required": review_required,
+                "review_reasons": review_reasons,
             },
         }
