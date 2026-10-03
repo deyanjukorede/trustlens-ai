@@ -220,6 +220,62 @@ def test_assessor_rejects_invalid_outcome_ratio_threshold():
         )
 
 
+def test_assessor_rejects_invalid_performance_gap_threshold():
+    """Performance-gap threshold should be between zero and one."""
+    data = pd.DataFrame(
+        {
+            "group": ["A", "B"],
+            "target": [1, 0],
+            "prediction": [1, 0],
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="performance_gap_threshold",
+    ):
+        ResponsibleAIAssessor(
+            data,
+            target_column="target",
+            prediction_column="prediction",
+            sensitive_attributes=["group"],
+            performance_gap_threshold=-0.01,
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="performance_gap_threshold",
+    ):
+        ResponsibleAIAssessor(
+            data,
+            target_column="target",
+            prediction_column="prediction",
+            sensitive_attributes=["group"],
+            performance_gap_threshold=1.01,
+        )
+
+
+def test_zero_performance_gap_threshold_is_allowed():
+    """A zero performance-gap threshold should be supported."""
+    data = pd.DataFrame(
+        {
+            "group": ["A", "B"],
+            "target": [1, 0],
+            "prediction": [1, 0],
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        prediction_column="prediction",
+        sensitive_attributes=["group"],
+        performance_gap_threshold=0,
+    )
+
+    assert assessor.performance_gap_threshold == 0.0
+
+
 def test_assessor_rejects_invalid_minimum_group_size():
     """Minimum group size should be a positive integer."""
     data = pd.DataFrame(
@@ -332,10 +388,12 @@ def test_group_fairness_availability():
 
     assert availability["group_fairness"]["available"] is True
     assert availability["outcome_bias"]["available"] is False
+
     assert (
         availability["prediction_performance_fairness"]["available"]
         is False
     )
+
     assert availability["explainability"]["available"] is True
 
 
@@ -360,10 +418,12 @@ def test_prediction_performance_fairness_availability():
 
     assert availability["group_fairness"]["available"] is True
     assert availability["outcome_bias"]["available"] is True
+
     assert (
         availability["prediction_performance_fairness"]["available"]
         is True
     )
+
     assert availability["explainability"]["available"] is True
 
 
@@ -441,12 +501,13 @@ def test_group_fairness_is_integrated_for_single_attribute():
     group_result = result["attributes"]["group"]
 
     assert group_result["reference_group"] == "A"
+
     assert (
         group_result["comparisons"]["B"]["disparate_impact_ratio"]
         == 0.5
     )
-    assert group_result["review_required"] is True
 
+    assert group_result["review_required"] is True
     assert result["attributes_requiring_review"] == ["group"]
     assert result["review_required"] is True
 
@@ -543,6 +604,7 @@ def test_custom_disparate_impact_threshold_is_used():
         group_result["comparisons"]["B"]["disparate_impact_ratio"]
         == 0.875
     )
+
     assert group_result["comparisons"]["B"]["requires_review"] is True
 
 
@@ -575,6 +637,11 @@ def test_fairness_review_flows_into_responsible_ai_summary():
     assert (
         summary["fairness_attributes_requiring_review"]
         == ["group"]
+    )
+
+    assert (
+        summary["prediction_performance_fairness_applicable"]
+        is False
     )
 
 
@@ -803,6 +870,11 @@ def test_bias_review_flows_into_responsible_ai_summary():
         == ["group"]
     )
 
+    assert (
+        summary["prediction_performance_fairness_applicable"]
+        is False
+    )
+
 
 def test_fairness_and_bias_can_both_require_review():
     """Prediction and observed-outcome disparities remain distinct."""
@@ -842,6 +914,442 @@ def test_fairness_and_bias_can_both_require_review():
     assert summary["review_required"] is True
 
 
+def test_performance_fairness_not_applicable_without_target():
+    """Performance fairness should be unavailable without a target."""
+    data = pd.DataFrame(
+        {
+            "group": ["A", "A", "B", "B"],
+            "prediction": [1, 0, 1, 0],
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        prediction_column="prediction",
+        sensitive_attributes=["group"],
+    )
+
+    result = assessor.prediction_performance_fairness_analysis()
+
+    assert result["applicable"] is False
+    assert result["attributes"] == {}
+    assert result["review_required"] is False
+    assert result["attributes_requiring_review"] == []
+
+
+def test_performance_fairness_not_applicable_without_predictions():
+    """Performance fairness should be unavailable without predictions."""
+    data = pd.DataFrame(
+        {
+            "group": ["A", "A", "B", "B"],
+            "target": [1, 0, 1, 0],
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        sensitive_attributes=["group"],
+    )
+
+    result = assessor.prediction_performance_fairness_analysis()
+
+    assert result["applicable"] is False
+    assert result["attributes"] == {}
+    assert result["review_required"] is False
+    assert result["attributes_requiring_review"] == []
+
+
+def test_performance_fairness_not_applicable_without_sensitive_attributes():
+    """Performance fairness should require sensitive attributes."""
+    data = pd.DataFrame(
+        {
+            "target": [1, 0, 1, 0],
+            "prediction": [1, 0, 0, 0],
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        prediction_column="prediction",
+    )
+
+    result = assessor.prediction_performance_fairness_analysis()
+
+    assert result["applicable"] is False
+    assert result["attributes"] == {}
+    assert result["review_required"] is False
+    assert result["attributes_requiring_review"] == []
+
+
+def test_performance_fairness_is_integrated_for_single_attribute():
+    """Integrated assessor should compare model performance by group."""
+    data = pd.DataFrame(
+        {
+            "group": ["A"] * 6 + ["B"] * 6,
+            "target": (
+                [1, 1, 1, 0, 0, 0]
+                + [1, 1, 1, 0, 0, 0]
+            ),
+            "prediction": (
+                [1, 1, 1, 0, 0, 0]
+                + [1, 0, 0, 1, 0, 0]
+            ),
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        prediction_column="prediction",
+        sensitive_attributes=["group"],
+        minimum_group_size=5,
+    )
+
+    result = assessor.prediction_performance_fairness_analysis()
+
+    assert result["applicable"] is True
+    assert result["attributes_analyzed"] == 1
+    assert "group" in result["attributes"]
+
+    group_result = result["attributes"]["group"]
+
+    assert group_result["group_metrics"]["A"]["accuracy"] == 1.0
+
+    assert (
+        group_result["group_metrics"]["B"]["accuracy"]
+        == 0.5
+    )
+
+    assert group_result["review_required"] is True
+    assert result["attributes_requiring_review"] == ["group"]
+    assert result["review_required"] is True
+
+
+def test_performance_fairness_supports_multiple_sensitive_attributes():
+    """Each sensitive attribute should receive performance analysis."""
+    data = pd.DataFrame(
+        {
+            "group": ["A"] * 6 + ["B"] * 6,
+            "region": ["north", "south"] * 6,
+            "target": [
+                1, 1, 1, 0, 0, 0,
+                1, 1, 1, 0, 0, 0,
+            ],
+            "prediction": [
+                1, 1, 1, 0, 0, 0,
+                1, 0, 0, 1, 0, 0,
+            ],
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        prediction_column="prediction",
+        sensitive_attributes=["group", "region"],
+        minimum_group_size=1,
+    )
+
+    result = assessor.prediction_performance_fairness_analysis()
+
+    assert result["applicable"] is True
+    assert result["attributes_analyzed"] == 2
+    assert "group" in result["attributes"]
+    assert "region" in result["attributes"]
+
+
+def test_performance_threshold_flows_into_integrated_analysis():
+    """Configured performance threshold should reach the analyzer."""
+    data = pd.DataFrame(
+        {
+            "group": ["A"] * 6 + ["B"] * 6,
+            "target": [
+                1, 1, 1, 0, 0, 0,
+                1, 1, 1, 0, 0, 0,
+            ],
+            "prediction": [
+                1, 1, 1, 0, 0, 0,
+                1, 0, 0, 1, 0, 0,
+            ],
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        prediction_column="prediction",
+        sensitive_attributes=["group"],
+        performance_gap_threshold=0.20,
+        minimum_group_size=3,
+    )
+
+    result = assessor.prediction_performance_fairness_analysis()
+
+    assert result["performance_gap_threshold"] == 0.20
+    assert result["minimum_group_size"] == 3
+
+    group_result = result["attributes"]["group"]
+
+    assert group_result["performance_gap_threshold"] == 0.20
+    assert group_result["minimum_group_size"] == 3
+
+
+def test_performance_review_flows_into_responsible_ai_summary():
+    """Performance disparities should contribute to integrated review."""
+    data = pd.DataFrame(
+        {
+            "group": ["A"] * 6 + ["B"] * 6,
+            "target": [
+                1, 1, 1, 0, 0, 0,
+                1, 1, 1, 0, 0, 0,
+            ],
+            "prediction": [
+                1, 1, 1, 0, 0, 0,
+                1, 0, 0, 1, 0, 0,
+            ],
+        }
+    )
+
+    report = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        prediction_column="prediction",
+        sensitive_attributes=["group"],
+        performance_gap_threshold=0.10,
+        minimum_group_size=5,
+    ).assess()
+
+    performance = report["prediction_performance_fairness"]
+    summary = report["responsible_ai_summary"]
+
+    assert performance["applicable"] is True
+    assert performance["review_required"] is True
+
+    assert summary["status"] == "review"
+    assert summary["review_required"] is True
+
+    assert (
+        "prediction_performance_fairness"
+        in summary["review_reasons"]
+    )
+
+    assert (
+        summary["performance_attributes_requiring_review"]
+        == ["group"]
+    )
+
+    assert (
+        summary["prediction_performance_fairness_applicable"]
+        is True
+    )
+
+
+def test_equal_performance_does_not_add_performance_review_reason():
+    """Equal group performance should not add a performance reason."""
+    data = pd.DataFrame(
+        {
+            "group": ["A"] * 6 + ["B"] * 6,
+            "target": [
+                1, 1, 1, 0, 0, 0,
+                1, 1, 1, 0, 0, 0,
+            ],
+            "prediction": [
+                1, 1, 0, 0, 0, 0,
+                1, 1, 0, 0, 0, 0,
+            ],
+        }
+    )
+
+    report = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        prediction_column="prediction",
+        sensitive_attributes=["group"],
+        minimum_group_size=5,
+    ).assess()
+
+    performance = report["prediction_performance_fairness"]
+    summary = report["responsible_ai_summary"]
+
+    assert performance["review_required"] is False
+
+    assert (
+        "prediction_performance_fairness"
+        not in summary["review_reasons"]
+    )
+
+    assert (
+        summary["performance_attributes_requiring_review"]
+        == []
+    )
+
+
+def test_all_three_responsible_ai_layers_can_require_review():
+    """Fairness, bias and performance indicators can coexist."""
+    data = pd.DataFrame(
+        {
+            "group": ["A"] * 10 + ["B"] * 10,
+            "target": (
+                [1] * 8
+                + [0] * 2
+                + [1] * 4
+                + [0] * 6
+            ),
+            "prediction": (
+                [1] * 8
+                + [0] * 2
+                + [1] * 2
+                + [0] * 8
+            ),
+        }
+    )
+
+    report = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        prediction_column="prediction",
+        sensitive_attributes=["group"],
+        minimum_group_size=5,
+    ).assess()
+
+    assert report["group_fairness"]["review_required"] is True
+    assert report["bias_indicators"]["review_required"] is True
+
+    assert (
+        report["prediction_performance_fairness"][
+            "review_required"
+        ]
+        is True
+    )
+
+    summary = report["responsible_ai_summary"]
+
+    assert summary["status"] == "review"
+    assert summary["review_required"] is True
+
+    assert "group_fairness" in summary["review_reasons"]
+    assert "bias_indicators" in summary["review_reasons"]
+
+    assert (
+        "prediction_performance_fairness"
+        in summary["review_reasons"]
+    )
+
+    assert summary["fairness_attributes_requiring_review"] == [
+        "group"
+    ]
+
+    assert summary["bias_attributes_requiring_review"] == [
+        "group"
+    ]
+
+    assert summary["performance_attributes_requiring_review"] == [
+        "group"
+    ]
+
+
+def test_custom_positive_label_flows_into_performance_analysis():
+    """Configured positive label should reach performance analysis."""
+    data = pd.DataFrame(
+        {
+            "group": ["A"] * 4 + ["B"] * 4,
+            "target": [
+                "approved",
+                "approved",
+                "denied",
+                "denied",
+                "approved",
+                "approved",
+                "denied",
+                "denied",
+            ],
+            "prediction": [
+                "approved",
+                "approved",
+                "denied",
+                "denied",
+                "approved",
+                "denied",
+                "approved",
+                "denied",
+            ],
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        prediction_column="prediction",
+        sensitive_attributes=["group"],
+        positive_label="approved",
+        minimum_group_size=1,
+    )
+
+    result = assessor.prediction_performance_fairness_analysis()
+
+    assert result["positive_label"] == "approved"
+
+    group_result = result["attributes"]["group"]
+
+    assert group_result["positive_label"] == "approved"
+
+    assert (
+        group_result["group_metrics"]["A"]["accuracy"]
+        == 1.0
+    )
+
+    assert (
+        group_result["group_metrics"]["B"]["accuracy"]
+        == 0.5
+    )
+
+
+def test_performance_limited_evidence_flows_into_review():
+    """Small groups should remain visible in integrated analysis."""
+    data = pd.DataFrame(
+        {
+            "group": ["A"] * 8 + ["B"] * 2,
+            "target": [
+                1, 1, 1, 1, 0, 0, 0, 0,
+                1, 0,
+            ],
+            "prediction": [
+                1, 1, 1, 1, 0, 0, 0, 0,
+                1, 0,
+            ],
+        }
+    )
+
+    assessor = ResponsibleAIAssessor(
+        data,
+        target_column="target",
+        prediction_column="prediction",
+        sensitive_attributes=["group"],
+        minimum_group_size=5,
+    )
+
+    result = assessor.prediction_performance_fairness_analysis()
+
+    group_result = result["attributes"]["group"]
+
+    assert (
+        group_result["group_metrics"]["B"]["limited_evidence"]
+        is True
+    )
+
+    assert (
+        "B"
+        in group_result["review_summary"][
+            "limited_evidence_groups"
+        ]
+    )
+
+    assert result["review_required"] is True
+    assert result["attributes_requiring_review"] == ["group"]
+
+
 def test_assess_returns_expected_structure():
     """Integrated assessment should return expected sections."""
     data = pd.DataFrame(
@@ -872,6 +1380,7 @@ def test_assess_returns_expected_structure():
         "analysis_availability",
         "group_fairness",
         "bias_indicators",
+        "prediction_performance_fairness",
         "responsible_ai_summary",
     }
 
@@ -890,6 +1399,11 @@ def test_assess_returns_expected_structure():
     assert report["bias_indicators"]["applicable"] is True
 
     assert (
+        report["prediction_performance_fairness"]["applicable"]
+        is True
+    )
+
+    assert (
         report["responsible_ai_summary"][
             "group_fairness_applicable"
         ]
@@ -899,6 +1413,13 @@ def test_assess_returns_expected_structure():
     assert (
         report["responsible_ai_summary"][
             "bias_indicators_applicable"
+        ]
+        is True
+    )
+
+    assert (
+        report["responsible_ai_summary"][
+            "prediction_performance_fairness_applicable"
         ]
         is True
     )
@@ -944,3 +1465,12 @@ def test_multiple_sensitive_attributes_are_supported():
     assert bias["attributes_analyzed"] == 2
     assert "group" in bias["attributes"]
     assert "region" in bias["attributes"]
+
+    performance = (
+        assessor.prediction_performance_fairness_analysis()
+    )
+
+    assert performance["applicable"] is True
+    assert performance["attributes_analyzed"] == 2
+    assert "group" in performance["attributes"]
+    assert "region" in performance["attributes"]
