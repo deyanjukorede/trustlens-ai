@@ -1,30 +1,36 @@
 """
 Core Responsible AI assessor for TrustLens AI.
 
-This module provides the foundation for evaluating responsible AI
-considerations associated with datasets and AI systems.
+This module provides the central integration point for evaluating
+responsible AI considerations associated with datasets and AI systems.
 
-The assessor is designed to coordinate specialised TrustLens
-components for fairness, potential bias, explainability, and other
-responsible AI indicators as Phase 5 develops.
+The assessor coordinates structural Responsible AI context with
+specialised analysis components such as group fairness. Additional
+bias, performance-fairness, and explainability capabilities can be
+integrated as Phase 5 develops.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, Hashable, List
 
 import pandas as pd
+
+from .fairness import FairnessAnalyzer
 
 
 class ResponsibleAIAssessor:
     """
-    Perform foundational Responsible AI assessment.
+    Perform integrated Responsible AI assessment.
 
-    The assessor stores the dataset and optional modelling context
-    required by specialised Responsible AI components.
+    The assessor stores dataset and modelling context and coordinates
+    specialised Responsible AI analyses.
 
-    Parameters such as a target column, prediction column, and
-    sensitive attributes are optional because some Responsible AI
-    checks can be performed without all modelling outputs being
-    available.
+    Group fairness analysis is performed when both model predictions
+    and at least one sensitive attribute are available. Each configured
+    sensitive attribute is analysed independently.
+
+    Fairness indicators identify measurable group disparities that may
+    warrant review. They do not independently establish whether a model
+    is fair, discriminatory, ethical, or legally compliant.
     """
 
     def __init__(
@@ -33,6 +39,8 @@ class ResponsibleAIAssessor:
         target_column: str | None = None,
         prediction_column: str | None = None,
         sensitive_attributes: List[str] | None = None,
+        positive_label: Hashable = 1,
+        disparate_impact_threshold: float = 0.80,
     ) -> None:
         """
         Initialise the Responsible AI assessor.
@@ -47,7 +55,14 @@ class ResponsibleAIAssessor:
             Optional column containing model predictions.
         sensitive_attributes:
             Optional list of attributes across which fairness and
-            potential bias may later be assessed.
+            potential bias may be assessed.
+        positive_label:
+            Prediction value treated as the positive outcome during
+            group fairness analysis.
+        disparate_impact_threshold:
+            Ratio below which a group fairness comparison is flagged
+            for review. This is used as a screening indicator rather
+            than a universal fairness determination.
 
         Raises
         ------
@@ -55,7 +70,8 @@ class ResponsibleAIAssessor:
             If data is not a pandas DataFrame or sensitive_attributes
             is not a list when supplied.
         ValueError
-            If the dataset is empty or supplied columns do not exist.
+            If the dataset is empty, supplied columns do not exist, or
+            the disparate-impact threshold is outside the valid range.
         """
         if not isinstance(data, pd.DataFrame):
             raise TypeError("data must be a pandas DataFrame")
@@ -83,6 +99,12 @@ class ResponsibleAIAssessor:
         ):
             raise TypeError("sensitive_attributes must be a list")
 
+        if not 0 < disparate_impact_threshold <= 1:
+            raise ValueError(
+                "disparate_impact_threshold must be greater than 0 "
+                "and less than or equal to 1"
+            )
+
         sensitive_attributes = sensitive_attributes or []
 
         missing_sensitive_attributes = [
@@ -102,6 +124,10 @@ class ResponsibleAIAssessor:
         self.target_column = target_column
         self.prediction_column = prediction_column
         self.sensitive_attributes = sensitive_attributes
+        self.positive_label = positive_label
+        self.disparate_impact_threshold = float(
+            disparate_impact_threshold
+        )
 
     @property
     def row_count(self) -> int:
@@ -167,11 +193,11 @@ class ResponsibleAIAssessor:
 
     def analysis_availability(self) -> Dict[str, Any]:
         """
-        Report which future Responsible AI analyses have enough context.
+        Report which Responsible AI analyses have enough context.
 
-        Availability indicates only whether the minimum structural
-        inputs are present. It does not indicate that an analysis has
-        already been performed.
+        Availability indicates whether minimum structural inputs are
+        present. It does not indicate that an analysis has established
+        fairness, bias, discrimination, or compliance.
         """
         has_sensitive_attributes = self.sensitive_attribute_count > 0
         has_target = self.target_column is not None
@@ -216,17 +242,123 @@ class ResponsibleAIAssessor:
             },
         }
 
+    def group_fairness_analysis(self) -> Dict[str, Any]:
+        """
+        Run group fairness analysis for each sensitive attribute.
+
+        Returns a not-applicable result when model predictions or
+        sensitive attributes have not been supplied.
+        """
+        if self.prediction_column is None:
+            return {
+                "applicable": False,
+                "reason": (
+                    "Group fairness analysis requires a prediction column."
+                ),
+                "attributes": {},
+                "review_required": False,
+                "attributes_requiring_review": [],
+            }
+
+        if not self.sensitive_attributes:
+            return {
+                "applicable": False,
+                "reason": (
+                    "Group fairness analysis requires at least one "
+                    "sensitive attribute."
+                ),
+                "attributes": {},
+                "review_required": False,
+                "attributes_requiring_review": [],
+            }
+
+        attribute_results: Dict[str, Any] = {}
+
+        for attribute in self.sensitive_attributes:
+            analyzer = FairnessAnalyzer(
+                self.data,
+                sensitive_attribute=attribute,
+                prediction_column=self.prediction_column,
+                positive_label=self.positive_label,
+                disparate_impact_threshold=(
+                    self.disparate_impact_threshold
+                ),
+            )
+
+            attribute_results[attribute] = analyzer.assess()
+
+        attributes_requiring_review = [
+            attribute
+            for attribute, result in attribute_results.items()
+            if result["review_required"]
+        ]
+
+        return {
+            "applicable": True,
+            "positive_label": self.positive_label,
+            "disparate_impact_threshold": (
+                self.disparate_impact_threshold
+            ),
+            "attributes_analyzed": len(attribute_results),
+            "attributes": attribute_results,
+            "attributes_requiring_review": (
+                attributes_requiring_review
+            ),
+            "review_required": bool(
+                attributes_requiring_review
+            ),
+        }
+
+    def responsible_ai_summary(
+        self,
+        group_fairness: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Build the current integrated Responsible AI summary.
+
+        The summary records review indicators from implemented
+        Responsible AI components. Future Phase 5 components can add
+        their own indicators to this summary as they are integrated.
+        """
+        review_reasons: List[str] = []
+
+        if (
+            group_fairness.get("applicable", False)
+            and group_fairness.get("review_required", False)
+        ):
+            review_reasons.append("group_fairness")
+
+        status = "review" if review_reasons else "no_review_indicators"
+
+        return {
+            "status": status,
+            "review_required": bool(review_reasons),
+            "review_reasons": review_reasons,
+            "group_fairness_applicable": group_fairness.get(
+                "applicable",
+                False,
+            ),
+            "fairness_attributes_requiring_review": (
+                group_fairness.get(
+                    "attributes_requiring_review",
+                    [],
+                )
+            ),
+        }
+
     def assess(self) -> Dict[str, Any]:
         """
-        Run the foundational Responsible AI assessment.
+        Run the integrated Responsible AI assessment.
 
         Returns
         -------
         dict
-            Structural Responsible AI information that will serve as
-            the integration point for fairness, bias, and explainability
-            components developed during Phase 5.
+            Responsible AI context, sensitive-attribute information,
+            analysis availability, group fairness results, and an
+            integrated review summary.
         """
+        group_fairness = self.group_fairness_analysis()
+
         return {
             "dataset": {
                 "rows": self.row_count,
@@ -240,4 +372,8 @@ class ResponsibleAIAssessor:
                 self.sensitive_attribute_summary()
             ),
             "analysis_availability": self.analysis_availability(),
+            "group_fairness": group_fairness,
+            "responsible_ai_summary": (
+                self.responsible_ai_summary(group_fairness)
+            ),
         }
