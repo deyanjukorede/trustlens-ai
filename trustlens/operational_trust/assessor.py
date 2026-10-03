@@ -16,6 +16,9 @@ from typing import Any, Dict, Optional
 import pandas as pd
 
 from trustlens.operational_trust.drift import DataDriftAnalyzer
+from trustlens.operational_trust.monitoring import (
+    MonitoringReadinessAnalyzer,
+)
 from trustlens.operational_trust.reproducibility import (
     ReproducibilityReadinessAnalyzer,
 )
@@ -58,6 +61,11 @@ class OperationalTrustAssessor:
     identifier_column:
         Optional dataset column intended to provide row-level
         identification for reproducibility analysis.
+    monitoring_metadata:
+        Optional dictionary containing evidence that can support
+        operational monitoring readiness, such as monitoring metrics,
+        alerting rules, ownership, review cadence, logging, incident
+        processes, reassessment triggers, and monitoring history.
     """
 
     def __init__(
@@ -72,6 +80,7 @@ class OperationalTrustAssessor:
         duplicate_rate_threshold: float = 0.10,
         reproducibility_metadata: Optional[Dict[str, Any]] = None,
         identifier_column: Optional[str] = None,
+        monitoring_metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialise the Operational Trust assessor."""
         if not isinstance(data, pd.DataFrame):
@@ -95,6 +104,15 @@ class OperationalTrustAssessor:
         ):
             raise TypeError(
                 "reproducibility_metadata must be a dictionary "
+                "when supplied"
+            )
+
+        if (
+            monitoring_metadata is not None
+            and not isinstance(monitoring_metadata, dict)
+        ):
+            raise TypeError(
+                "monitoring_metadata must be a dictionary "
                 "when supplied"
             )
 
@@ -151,7 +169,14 @@ class OperationalTrustAssessor:
             if reproducibility_metadata is not None
             else {}
         )
+
         self.identifier_column = identifier_column
+
+        self.monitoring_metadata = (
+            dict(monitoring_metadata)
+            if monitoring_metadata is not None
+            else {}
+        )
 
         self.numeric_mean_shift_threshold = float(
             numeric_mean_shift_threshold
@@ -226,6 +251,9 @@ class OperationalTrustAssessor:
                 self.reproducibility_metadata
             ),
             "identifier_column": self.identifier_column,
+            "monitoring_metadata_supplied": bool(
+                self.monitoring_metadata
+            ),
         }
 
     def analysis_availability(self) -> Dict[str, Dict[str, Any]]:
@@ -250,6 +278,9 @@ class OperationalTrustAssessor:
             "monitoring_readiness": {
                 "available": True,
                 "requires": ["current_data"],
+                "optional_context": [
+                    "monitoring_metadata",
+                ],
             },
         }
 
@@ -301,11 +332,21 @@ class OperationalTrustAssessor:
 
         return analyzer.assess()
 
+    def _assess_monitoring_readiness(self) -> Dict[str, Any]:
+        """Run operational monitoring readiness analysis."""
+        analyzer = MonitoringReadinessAnalyzer(
+            data=self.data,
+            metadata=self.monitoring_metadata,
+        )
+
+        return analyzer.assess()
+
     def assess(self) -> Dict[str, Any]:
         """Return the integrated Operational Trust assessment."""
         data_drift = self._assess_data_drift()
         data_stability = self._assess_data_stability()
         reproducibility = self._assess_reproducibility()
+        monitoring_readiness = self._assess_monitoring_readiness()
 
         review_reasons = []
 
@@ -320,6 +361,9 @@ class OperationalTrustAssessor:
 
         if reproducibility["review_required"]:
             review_reasons.append("reproducibility")
+
+        if monitoring_readiness["review_required"]:
+            review_reasons.append("monitoring_readiness")
 
         review_required = bool(review_reasons)
 
@@ -347,6 +391,7 @@ class OperationalTrustAssessor:
             "data_drift": data_drift,
             "data_stability": data_stability,
             "reproducibility": reproducibility,
+            "monitoring_readiness": monitoring_readiness,
             "operational_trust_summary": {
                 "status": status,
                 "review_required": review_required,
