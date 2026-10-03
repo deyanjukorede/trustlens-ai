@@ -5,8 +5,8 @@ This module provides the central integration point for evaluating
 responsible AI considerations associated with datasets and AI systems.
 
 The assessor coordinates structural Responsible AI context with
-specialised analysis components including group fairness and potential
-bias indicators. Additional performance-fairness and explainability
+specialised analysis components including group fairness, potential
+bias indicators, and prediction-performance fairness. Explainability
 capabilities can be integrated as Phase 5 develops.
 """
 
@@ -16,6 +16,7 @@ import pandas as pd
 
 from .bias import BiasIndicatorAnalyzer
 from .fairness import FairnessAnalyzer
+from .performance_fairness import PerformanceFairnessAnalyzer
 
 
 class ResponsibleAIAssessor:
@@ -30,6 +31,10 @@ class ResponsibleAIAssessor:
 
     Bias indicator analysis evaluates representation, group-size, and
     observed outcome disparities in the underlying data.
+
+    Prediction-performance fairness analysis evaluates whether model
+    performance and error metrics differ across configured sensitive
+    attributes.
 
     These indicators identify conditions that may warrant review. They
     do not independently establish whether a dataset or model is fair,
@@ -46,6 +51,7 @@ class ResponsibleAIAssessor:
         disparate_impact_threshold: float = 0.80,
         representation_threshold: float = 0.10,
         outcome_ratio_threshold: float = 0.80,
+        performance_gap_threshold: float = 0.10,
         minimum_group_size: int = 5,
     ) -> None:
         """
@@ -63,8 +69,8 @@ class ResponsibleAIAssessor:
             Optional list of attributes across which Responsible AI
             analyses may be performed.
         positive_label:
-            Value treated as the positive outcome during fairness and
-            observed-outcome analysis.
+            Value treated as the positive outcome during fairness,
+            observed-outcome, and predictive-performance analysis.
         disparate_impact_threshold:
             Ratio below which a prediction-rate comparison is flagged
             for fairness review.
@@ -74,8 +80,13 @@ class ResponsibleAIAssessor:
         outcome_ratio_threshold:
             Ratio below which an observed outcome-rate comparison is
             flagged as a potential bias indicator.
+        performance_gap_threshold:
+            Maximum absolute difference between a group's predictive
+            performance metric and the overall metric before a
+            performance review indicator is raised.
         minimum_group_size:
-            Minimum number of valid observations expected for each group.
+            Minimum number of valid observations expected for each group
+            during analyses that assess evidence sufficiency.
 
         Raises
         ------
@@ -130,6 +141,11 @@ class ResponsibleAIAssessor:
                 "and less than or equal to 1"
             )
 
+        if not 0 <= performance_gap_threshold <= 1:
+            raise ValueError(
+                "performance_gap_threshold must be between 0 and 1"
+            )
+
         if (
             not isinstance(minimum_group_size, int)
             or isinstance(minimum_group_size, bool)
@@ -170,6 +186,10 @@ class ResponsibleAIAssessor:
 
         self.outcome_ratio_threshold = float(
             outcome_ratio_threshold
+        )
+
+        self.performance_gap_threshold = float(
+            performance_gap_threshold
         )
 
         self.minimum_group_size = minimum_group_size
@@ -437,10 +457,107 @@ class ResponsibleAIAssessor:
             ),
         }
 
+    def prediction_performance_fairness_analysis(
+        self,
+    ) -> Dict[str, Any]:
+        """
+        Run prediction-performance fairness analysis.
+
+        Each configured sensitive attribute is analysed independently.
+
+        The analysis compares group-level predictive performance with
+        overall valid-dataset performance using classification metrics
+        including accuracy, precision, recall, error rate,
+        false-positive rate, and false-negative rate.
+
+        Performance differences are descriptive review indicators and
+        do not independently establish unfairness or discrimination.
+
+        Returns a not-applicable result when the target column,
+        prediction column, or sensitive attributes have not been
+        supplied.
+        """
+        if self.target_column is None:
+            return {
+                "applicable": False,
+                "reason": (
+                    "Prediction-performance fairness analysis "
+                    "requires a target column."
+                ),
+                "attributes": {},
+                "review_required": False,
+                "attributes_requiring_review": [],
+            }
+
+        if self.prediction_column is None:
+            return {
+                "applicable": False,
+                "reason": (
+                    "Prediction-performance fairness analysis "
+                    "requires a prediction column."
+                ),
+                "attributes": {},
+                "review_required": False,
+                "attributes_requiring_review": [],
+            }
+
+        if not self.sensitive_attributes:
+            return {
+                "applicable": False,
+                "reason": (
+                    "Prediction-performance fairness analysis "
+                    "requires at least one sensitive attribute."
+                ),
+                "attributes": {},
+                "review_required": False,
+                "attributes_requiring_review": [],
+            }
+
+        attribute_results: Dict[str, Any] = {}
+
+        for attribute in self.sensitive_attributes:
+            analyzer = PerformanceFairnessAnalyzer(
+                self.data,
+                sensitive_attribute=attribute,
+                target_column=self.target_column,
+                prediction_column=self.prediction_column,
+                positive_label=self.positive_label,
+                performance_gap_threshold=(
+                    self.performance_gap_threshold
+                ),
+                minimum_group_size=self.minimum_group_size,
+            )
+
+            attribute_results[attribute] = analyzer.assess()
+
+        attributes_requiring_review = [
+            attribute
+            for attribute, result in attribute_results.items()
+            if result["review_required"]
+        ]
+
+        return {
+            "applicable": True,
+            "positive_label": self.positive_label,
+            "performance_gap_threshold": (
+                self.performance_gap_threshold
+            ),
+            "minimum_group_size": self.minimum_group_size,
+            "attributes_analyzed": len(attribute_results),
+            "attributes": attribute_results,
+            "attributes_requiring_review": (
+                attributes_requiring_review
+            ),
+            "review_required": bool(
+                attributes_requiring_review
+            ),
+        }
+
     def responsible_ai_summary(
         self,
         group_fairness: Dict[str, Any],
         bias_indicators: Dict[str, Any],
+        performance_fairness: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
         Build the integrated Responsible AI review summary.
@@ -462,6 +579,14 @@ class ResponsibleAIAssessor:
             and bias_indicators.get("review_required", False)
         ):
             review_reasons.append("bias_indicators")
+
+        if (
+            performance_fairness.get("applicable", False)
+            and performance_fairness.get("review_required", False)
+        ):
+            review_reasons.append(
+                "prediction_performance_fairness"
+            )
 
         status = (
             "review"
@@ -485,6 +610,12 @@ class ResponsibleAIAssessor:
                     False,
                 )
             ),
+            "prediction_performance_fairness_applicable": (
+                performance_fairness.get(
+                    "applicable",
+                    False,
+                )
+            ),
             "fairness_attributes_requiring_review": (
                 group_fairness.get(
                     "attributes_requiring_review",
@@ -493,6 +624,12 @@ class ResponsibleAIAssessor:
             ),
             "bias_attributes_requiring_review": (
                 bias_indicators.get(
+                    "attributes_requiring_review",
+                    [],
+                )
+            ),
+            "performance_attributes_requiring_review": (
+                performance_fairness.get(
                     "attributes_requiring_review",
                     [],
                 )
@@ -508,10 +645,15 @@ class ResponsibleAIAssessor:
         dict
             Responsible AI context, sensitive-attribute information,
             availability information, group fairness analysis, bias
-            indicators, and the integrated review summary.
+            indicators, prediction-performance fairness analysis, and
+            the integrated review summary.
         """
         group_fairness = self.group_fairness_analysis()
         bias_indicators = self.bias_indicator_analysis()
+
+        performance_fairness = (
+            self.prediction_performance_fairness_analysis()
+        )
 
         return {
             "dataset": {
@@ -532,10 +674,14 @@ class ResponsibleAIAssessor:
             ),
             "group_fairness": group_fairness,
             "bias_indicators": bias_indicators,
+            "prediction_performance_fairness": (
+                performance_fairness
+            ),
             "responsible_ai_summary": (
                 self.responsible_ai_summary(
                     group_fairness,
                     bias_indicators,
+                    performance_fairness,
                 )
             ),
         }
