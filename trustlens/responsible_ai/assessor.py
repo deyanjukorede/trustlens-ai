@@ -6,8 +6,8 @@ responsible AI considerations associated with datasets and AI systems.
 
 The assessor coordinates structural Responsible AI context with
 specialised analysis components including group fairness, potential
-bias indicators, and prediction-performance fairness. Explainability
-capabilities can be integrated as Phase 5 develops.
+bias indicators, prediction-performance fairness, and explainability
+readiness.
 """
 
 from typing import Any, Dict, Hashable, List
@@ -15,6 +15,7 @@ from typing import Any, Dict, Hashable, List
 import pandas as pd
 
 from .bias import BiasIndicatorAnalyzer
+from .explainability import ExplainabilityAnalyzer
 from .fairness import FairnessAnalyzer
 from .performance_fairness import PerformanceFairnessAnalyzer
 
@@ -36,9 +37,13 @@ class ResponsibleAIAssessor:
     performance and error metrics differ across configured sensitive
     attributes.
 
+    Explainability-readiness analysis evaluates whether candidate
+    explanatory features have structural characteristics suitable for
+    meaningful downstream explanation analysis.
+
     These indicators identify conditions that may warrant review. They
     do not independently establish whether a dataset or model is fair,
-    biased, discriminatory, ethical, or legally compliant.
+    biased, discriminatory, explainable, ethical, or legally compliant.
     """
 
     def __init__(
@@ -53,6 +58,8 @@ class ResponsibleAIAssessor:
         outcome_ratio_threshold: float = 0.80,
         performance_gap_threshold: float = 0.10,
         minimum_group_size: int = 5,
+        high_cardinality_threshold: int = 20,
+        missingness_threshold: float = 0.50,
     ) -> None:
         """
         Initialise the Responsible AI assessor.
@@ -87,6 +94,12 @@ class ResponsibleAIAssessor:
         minimum_group_size:
             Minimum number of valid observations expected for each group
             during analyses that assess evidence sufficiency.
+        high_cardinality_threshold:
+            Number of unique values above which a categorical candidate
+            explanatory feature is flagged as high cardinality.
+        missingness_threshold:
+            Proportion of missing values at or above which a candidate
+            explanatory feature is flagged for review.
 
         Raises
         ------
@@ -155,6 +168,20 @@ class ResponsibleAIAssessor:
                 "minimum_group_size must be a positive integer"
             )
 
+        if (
+            not isinstance(high_cardinality_threshold, int)
+            or isinstance(high_cardinality_threshold, bool)
+            or high_cardinality_threshold < 1
+        ):
+            raise ValueError(
+                "high_cardinality_threshold must be a positive integer"
+            )
+
+        if not 0 <= missingness_threshold <= 1:
+            raise ValueError(
+                "missingness_threshold must be between 0 and 1"
+            )
+
         sensitive_attributes = sensitive_attributes or []
 
         missing_sensitive_attributes = [
@@ -193,6 +220,14 @@ class ResponsibleAIAssessor:
         )
 
         self.minimum_group_size = minimum_group_size
+
+        self.high_cardinality_threshold = (
+            high_cardinality_threshold
+        )
+
+        self.missingness_threshold = float(
+            missingness_threshold
+        )
 
     @property
     def row_count(self) -> int:
@@ -256,17 +291,42 @@ class ResponsibleAIAssessor:
             "attributes": attributes,
         }
 
+    def explainability_candidate_features(self) -> List[str]:
+        """
+        Return candidate features available for explainability analysis.
+
+        Target, prediction, and configured sensitive attributes are
+        excluded from candidate explanatory features.
+        """
+        excluded = set(self.sensitive_attributes)
+
+        if self.target_column is not None:
+            excluded.add(self.target_column)
+
+        if self.prediction_column is not None:
+            excluded.add(self.prediction_column)
+
+        return [
+            column
+            for column in self.data.columns
+            if column not in excluded
+        ]
+
     def analysis_availability(self) -> Dict[str, Any]:
         """
         Report which Responsible AI analyses have enough context.
 
         Availability indicates whether minimum structural inputs are
         present. It does not indicate that an analysis has established
-        fairness, bias, discrimination, or compliance.
+        fairness, bias, discrimination, explainability, or compliance.
         """
         has_sensitive_attributes = self.sensitive_attribute_count > 0
         has_target = self.target_column is not None
         has_predictions = self.prediction_column is not None
+
+        has_explainability_features = bool(
+            self.explainability_candidate_features()
+        )
 
         return {
             "group_fairness": {
@@ -300,9 +360,9 @@ class ResponsibleAIAssessor:
                 ],
             },
             "explainability": {
-                "available": has_predictions,
+                "available": has_explainability_features,
                 "requires": [
-                    "prediction_column",
+                    "candidate_explanatory_features",
                 ],
             },
         }
@@ -553,18 +613,54 @@ class ResponsibleAIAssessor:
             ),
         }
 
+    def explainability_analysis(self) -> Dict[str, Any]:
+        """
+        Run feature-level explainability-readiness analysis.
+
+        The analysis can operate without model predictions because it
+        evaluates whether suitable candidate explanatory features exist
+        and whether their structure presents explanation-readiness
+        concerns.
+
+        Target, prediction, and configured sensitive attributes are
+        excluded from candidate explanatory features.
+        """
+        analyzer = ExplainabilityAnalyzer(
+            self.data,
+            target_column=self.target_column,
+            prediction_column=self.prediction_column,
+            sensitive_attributes=self.sensitive_attributes,
+            high_cardinality_threshold=(
+                self.high_cardinality_threshold
+            ),
+            missingness_threshold=(
+                self.missingness_threshold
+            ),
+        )
+
+        result = analyzer.assess()
+
+        return {
+            "applicable": bool(
+                result["candidate_feature_count"]
+            ),
+            **result,
+        }
+
     def responsible_ai_summary(
         self,
         group_fairness: Dict[str, Any],
         bias_indicators: Dict[str, Any],
         performance_fairness: Dict[str, Any],
+        explainability: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
         Build the integrated Responsible AI review summary.
 
-        Review reasons are based only on implemented TrustLens
-        components. Future Responsible AI components can contribute
-        additional indicators as Phase 5 develops.
+        Review reasons are based on implemented TrustLens components.
+        They represent indicators requiring further investigation rather
+        than determinations of fairness, bias, explainability, ethics,
+        or legal compliance.
         """
         review_reasons: List[str] = []
 
@@ -587,6 +683,9 @@ class ResponsibleAIAssessor:
             review_reasons.append(
                 "prediction_performance_fairness"
             )
+
+        if explainability.get("review_required", False):
+            review_reasons.append("explainability")
 
         status = (
             "review"
@@ -616,6 +715,12 @@ class ResponsibleAIAssessor:
                     False,
                 )
             ),
+            "explainability_applicable": (
+                explainability.get(
+                    "applicable",
+                    False,
+                )
+            ),
             "fairness_attributes_requiring_review": (
                 group_fairness.get(
                     "attributes_requiring_review",
@@ -634,6 +739,24 @@ class ResponsibleAIAssessor:
                     [],
                 )
             ),
+            "explainability_features_requiring_review": (
+                explainability.get(
+                    "review_summary",
+                    {},
+                ).get(
+                    "features_requiring_review",
+                    [],
+                )
+            ),
+            "explanation_readiness_status": (
+                explainability.get(
+                    "explanation_readiness",
+                    {},
+                ).get(
+                    "status",
+                    "unknown",
+                )
+            ),
         }
 
     def assess(self) -> Dict[str, Any]:
@@ -645,8 +768,8 @@ class ResponsibleAIAssessor:
         dict
             Responsible AI context, sensitive-attribute information,
             availability information, group fairness analysis, bias
-            indicators, prediction-performance fairness analysis, and
-            the integrated review summary.
+            indicators, prediction-performance fairness, explainability
+            readiness, and the integrated review summary.
         """
         group_fairness = self.group_fairness_analysis()
         bias_indicators = self.bias_indicator_analysis()
@@ -654,6 +777,8 @@ class ResponsibleAIAssessor:
         performance_fairness = (
             self.prediction_performance_fairness_analysis()
         )
+
+        explainability = self.explainability_analysis()
 
         return {
             "dataset": {
@@ -677,11 +802,13 @@ class ResponsibleAIAssessor:
             "prediction_performance_fairness": (
                 performance_fairness
             ),
+            "explainability": explainability,
             "responsible_ai_summary": (
                 self.responsible_ai_summary(
                     group_fairness,
                     bias_indicators,
                     performance_fairness,
+                    explainability,
                 )
             ),
         }
