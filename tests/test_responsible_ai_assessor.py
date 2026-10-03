@@ -645,8 +645,8 @@ def test_fairness_review_flows_into_responsible_ai_summary():
     )
 
 
-def test_no_fairness_disparity_produces_no_review_indicator():
-    """No flagged disparity should produce no review indicator."""
+def test_no_fairness_disparity_does_not_add_fairness_review_reason():
+    """No flagged disparity should not add a group-fairness review reason."""
     data = pd.DataFrame(
         {
             "group": ["A"] * 10 + ["B"] * 10,
@@ -671,9 +671,19 @@ def test_no_fairness_disparity_produces_no_review_indicator():
     assert fairness["review_required"] is False
     assert fairness["attributes_requiring_review"] == []
 
-    assert summary["status"] == "no_review_indicators"
-    assert summary["review_required"] is False
-    assert summary["review_reasons"] == []
+    assert "group_fairness" not in summary["review_reasons"]
+    assert summary["fairness_attributes_requiring_review"] == []
+
+    assert report["explainability"]["applicable"] is False
+
+    assert (
+        report["explainability"]["explanation_readiness"]["status"]
+        == "insufficient_features"
+    )
+
+    assert "explainability" in summary["review_reasons"]
+    assert summary["status"] == "review"
+    assert summary["review_required"] is True
 
 
 def test_bias_indicators_not_applicable_without_target():
