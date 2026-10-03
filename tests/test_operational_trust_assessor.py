@@ -18,6 +18,8 @@ def test_assessor_initialises_with_valid_dataframe():
     assert assessor.row_count == 3
     assert assessor.column_count == 2
     assert assessor.reference_data_available is False
+    assert assessor.reproducibility_metadata == {}
+    assert assessor.monitoring_metadata == {}
 
 
 def test_assessor_rejects_non_dataframe_input():
@@ -102,8 +104,26 @@ def test_assessor_rejects_empty_reference_dataframe():
         )
 
 
+def test_assessor_rejects_non_dictionary_monitoring_metadata():
+    """Monitoring metadata must be a dictionary when supplied."""
+    data = pd.DataFrame(
+        {
+            "feature": [1, 2, 3],
+        }
+    )
+
+    with pytest.raises(
+        TypeError,
+        match="monitoring_metadata must be a dictionary when supplied",
+    ):
+        OperationalTrustAssessor(
+            data,
+            monitoring_metadata=["monitoring"],
+        )
+
+
 def test_assessment_context_without_reference_data():
-    """Context should report when no comparison dataset exists."""
+    """Context should report when optional context is absent."""
     data = pd.DataFrame(
         {
             "feature_a": [1, 2],
@@ -122,6 +142,9 @@ def test_assessment_context_without_reference_data():
 
     assert context["reference_data_available"] is False
     assert context["reference_data"] is None
+    assert context["reproducibility_metadata_supplied"] is False
+    assert context["identifier_column"] is None
+    assert context["monitoring_metadata_supplied"] is False
 
 
 def test_assessment_context_with_reference_data():
@@ -159,6 +182,26 @@ def test_assessment_context_with_reference_data():
     }
 
 
+def test_assessment_context_reports_monitoring_metadata():
+    """Context should report supplied monitoring metadata."""
+    data = pd.DataFrame(
+        {
+            "feature": [1, 2, 3],
+        }
+    )
+
+    assessor = OperationalTrustAssessor(
+        data,
+        monitoring_metadata={
+            "monitoring_owner": "data-team",
+        },
+    )
+
+    context = assessor.assessment_context()
+
+    assert context["monitoring_metadata_supplied"] is True
+
+
 def test_drift_availability_requires_reference_data():
     """Drift analysis should require a comparison dataset."""
     data = pd.DataFrame(
@@ -193,7 +236,7 @@ def test_drift_availability_requires_reference_data():
 
 
 def test_non_drift_foundation_analyses_are_available():
-    """Foundation should expose the remaining planned analyses."""
+    """Foundation should expose non-drift analyses."""
     data = pd.DataFrame(
         {
             "feature": [1, 2, 3],
@@ -207,6 +250,25 @@ def test_non_drift_foundation_analyses_are_available():
     assert availability["data_stability"]["available"] is True
     assert availability["reproducibility"]["available"] is True
     assert availability["monitoring_readiness"]["available"] is True
+
+
+def test_monitoring_availability_reports_optional_context():
+    """Monitoring availability should describe optional metadata."""
+    data = pd.DataFrame(
+        {
+            "feature": [1, 2, 3],
+        }
+    )
+
+    availability = OperationalTrustAssessor(
+        data
+    ).analysis_availability()
+
+    assert availability["monitoring_readiness"] == {
+        "available": True,
+        "requires": ["current_data"],
+        "optional_context": ["monitoring_metadata"],
+    }
 
 
 def test_assess_returns_integrated_structure_without_reference_data():
@@ -228,6 +290,7 @@ def test_assess_returns_integrated_structure_without_reference_data():
         "data_drift",
         "data_stability",
         "reproducibility",
+        "monitoring_readiness",
         "operational_trust_summary",
     }
 
@@ -246,10 +309,17 @@ def test_assess_returns_integrated_structure_without_reference_data():
     assert report["reproducibility"]["metadata_supplied"] is False
     assert report["reproducibility"]["review_required"] is True
 
+    assert report["monitoring_readiness"] is not None
+    assert report["monitoring_readiness"]["metadata_supplied"] is False
+    assert report["monitoring_readiness"]["review_required"] is True
+
     assert report["operational_trust_summary"] == {
         "status": "review",
         "review_required": True,
-        "review_reasons": ["reproducibility"],
+        "review_reasons": [
+            "reproducibility",
+            "monitoring_readiness",
+        ],
     }
 
 
