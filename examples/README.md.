@@ -1,0 +1,280 @@
+
+# TrustLens AI — Practical Examples
+
+This directory contains practical examples demonstrating how to use
+TrustLens AI to assess data readiness, governance, responsible AI
+indicators, and operational trust.
+
+The examples are intended for researchers, developers, data scientists,
+AI governance professionals, and organisations exploring evidence-based
+AI assessment.
+
+> **Important:** TrustLens AI provides analytical indicators and
+> supporting evidence. It does not certify that datasets or AI systems
+> are safe, fair, trustworthy, production-ready, or legally compliant.
+
+## 1. Available Example Files
+
+| File | Description |
+|------|-------------|
+| `sample_dataset.csv` | Synthetic dataset for demonstrating TrustLens assessments. |
+| `unified_assessment_example.py` | Python example using the unified five-dimension assessment interface. |
+| `README.md` | Instructions for running and understanding the examples. |
+
+All sample records are fictional and intended for demonstration.
+
+## 2. Prerequisites
+
+The examples require:
+
+- Python 3.10 or later.
+- TrustLens AI and its dependencies.
+- A terminal or command-line environment.
+
+Clone the TrustLens AI repository:
+
+```bash
+git clone https://github.com/deyanjukorede/trustlens-ai.git
+cd trustlens-ai
+```
+
+Install TrustLens AI in editable mode:
+
+```bash
+python -m pip install -e .
+```
+
+During development, use the branch containing these examples.
+The main branch may not contain the latest example files until
+the relevant pull request has been merged.
+
+## 3. Understanding the Sample Dataset
+
+The file `sample_dataset.csv` contains 20 fictional records.
+
+Its columns include:
+
+| Column | Purpose |
+|--------|---------|
+| `record_id` | Synthetic record identifier. |
+| `age` | Example numerical feature. |
+| `income` | Example numerical feature. |
+| `employment_status` | Example categorical feature. |
+| `region` | Example geographical category. |
+| `group` | Fictional group attribute for fairness demonstrations. |
+| `target` | Example binary prediction target. |
+| `prediction` | Example binary model prediction. |
+
+The dataset is deliberately small and simplified.
+
+It is suitable for demonstrating software functionality but not
+for making statistically reliable conclusions about real-world
+fairness, privacy risk, model performance, or operational readiness.
+
+## 4. Example A — Run the Unified Python Assessment
+
+From the repository root, execute:
+
+```bash
+python examples/unified_assessment_example.py
+```
+
+The example:
+
+1. Loads the synthetic CSV dataset.
+2. Creates a `TrustLensAssessor`.
+3. Supplies a target column, prediction column, sensitive attribute,
+   and identifier column.
+4. Runs the unified assessment.
+5. Displays available report sections and assessment dimensions.
+6. Prints the cross-dimension summary.
+7. Reminds users that findings require human interpretation.
+
+The unified framework coordinates five assessment dimensions:
+
+- Data Quality
+- Data Governance
+- AI Readiness
+- Responsible AI
+- Operational Trust
+
+The exact findings depend on the dataset and the contextual
+information supplied to the assessment.
+
+## 5. Example B — Assess a Dataset Using the CLI
+
+TrustLens AI includes a command-line interface.
+
+Run this command from the repository root:
+
+```bash
+trustlens assess examples/sample_dataset.csv --output sample_report.json
+```
+
+Alternatively, use the Python module directly:
+
+```bash
+python -m trustlens.cli assess examples/sample_dataset.csv --output sample_report.json
+```
+
+The command creates a structured JSON assessment report.
+
+The output file must not already exist. TrustLens refuses to
+overwrite an existing report to help prevent accidental data loss.
+
+## 6. Example C — Supply Prediction and Group Information
+
+To include additional modelling context, run:
+
+```bash
+trustlens assess examples/sample_dataset.csv --output detailed_report.json --target target --prediction prediction --sensitive group --identifier record_id
+```
+
+These options tell TrustLens:
+
+- `--target target`: which column contains the intended prediction target.
+- `--prediction prediction`: which column contains model predictions.
+- `--sensitive group`: which attribute is relevant to group-based analysis.
+- `--identifier record_id`: which column contains record identifiers.
+
+Providing these inputs can enable additional assessment capabilities.
+It does not guarantee that every analysis is applicable or that the
+available sample is sufficient for meaningful conclusions.
+
+## 7. Example D — Compare Against Reference Data
+
+TrustLens supports an optional reference dataset for operational
+trust and drift analysis.
+
+For a basic demonstration using the same sample file as both
+datasets:
+
+```bash
+trustlens assess examples/sample_dataset.csv --reference examples/sample_dataset.csv --output reference_report.json
+```
+
+This verifies the command structure, but comparing a dataset with
+itself is not a meaningful real-world drift-monitoring exercise.
+
+For practical monitoring, supply a separate, relevant historical
+or baseline dataset with compatible features.
+
+## 8. Example E — Supply Governance Metadata
+
+TrustLens accepts optional JSON files containing governance and
+operational context.
+
+For example, create a local JSON file named
+`example_metadata.json` containing:
+
+```json
+{
+  "dataset_name": "Synthetic TrustLens Demonstration Dataset",
+  "description": "Fictional records for software demonstrations",
+  "data_owner": "Example Data Steward",
+  "source": "Synthetic example",
+  "collection_date": "2026-10-08"
+}
+```
+
+Then run:
+
+```bash
+trustlens assess examples/sample_dataset.csv --metadata example_metadata.json --output metadata_report.json
+```
+
+This demonstrates how metadata can be supplied. The metadata
+assessment determines which expected fields are recognised and
+whether additional governance documentation is required.
+
+The presence of metadata alone does not establish governance
+compliance or sufficient documentation.
+
+## 9. Supported CLI Options
+
+| Option | Description |
+|--------|-------------|
+| `--output` | Required destination for the JSON report. |
+| `--target` | Optional prediction target column. |
+| `--prediction` | Optional prediction column. |
+| `--sensitive` | One or more sensitive-attribute columns. |
+| `--reference` | Optional reference CSV dataset. |
+| `--metadata` | Optional governance metadata JSON file. |
+| `--governance-controls` | Optional governance-controls JSON file. |
+| `--reproducibility-metadata` | Optional reproducibility metadata JSON file. |
+| `--monitoring-metadata` | Optional monitoring metadata JSON file. |
+| `--identifier` | Optional identifier column. |
+
+For full command-line help:
+
+```bash
+trustlens --help
+trustlens assess --help
+```
+
+## 10. Understanding the Assessment Report
+
+TrustLens produces a structured report covering the five
+assessment dimensions.
+
+The report may include:
+
+- Dataset characteristics and quality indicators.
+- Missing values, duplicates, and potential outliers.
+- Sensitive-data and privacy-risk indicators.
+- Governance metadata and control assessments.
+- Feature suitability, class imbalance, and leakage indicators.
+- Responsible AI and fairness-related findings.
+- Drift, stability, reproducibility, and monitoring-readiness indicators.
+- Cross-dimension summaries and review considerations.
+
+Some assessments depend on optional inputs.
+
+Where required information is unavailable, users should interpret
+the resulting limitations rather than treating missing analysis
+as evidence that no risk exists.
+
+A numerical indicator or an automated status must not be interpreted
+as a formal certification.
+
+## 11. Running the Automated Tests
+
+From the repository root:
+
+```bash
+python -m pytest -v
+```
+
+The test suite includes checks for the sample dataset and
+the unified Python example.
+
+GitHub Actions also validates TrustLens across Python 3.10,
+3.11, and 3.12.
+
+## 12. Responsible Use
+
+When applying TrustLens to real datasets:
+
+- Ensure you are authorised to access and process the data.
+- Avoid publishing personal or confidential records.
+- Review potentially sensitive columns and data values.
+- Interpret fairness indicators in their proper statistical,
+  organisational, and legal context.
+- Investigate flagged issues before making operational decisions.
+- Maintain appropriate human oversight.
+- Do not treat automated assessment results as proof of compliance.
+
+TrustLens AI is designed to support transparent, evidence-based
+decision-making, not replace professional judgement.
+
+## 13. Project Development
+
+These examples form part of Phase 7E of the TrustLens AI
+development roadmap, supporting documentation and developer
+experience ahead of the planned v1.0.0 release.
+
+Further examples and enhancements may be introduced as the
+framework evolves.
+
+For the main project documentation, see the repository's
+root `README.md`.
