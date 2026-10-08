@@ -1,38 +1,48 @@
+
 # TrustLens AI
 
-### Open-Source AI Data Readiness & Trust Assessment Framework
+### Open-Source AI Data Readiness, Governance & Trust Assessment Framework
 
-TrustLens AI is an open-source framework designed to evaluate whether data is ready, reliable, responsibly governed, and trustworthy enough for use in artificial intelligence and machine learning systems.
+TrustLens AI is an open-source Python framework for evaluating data quality, data governance, AI readiness, responsible AI indicators, and operational trust.
 
-Rather than assessing data quality alone, TrustLens AI is being developed as a unified assessment framework across five core dimensions:
+Rather than focusing solely on data quality, TrustLens AI brings together five complementary assessment dimensions to help researchers, developers, data scientists, governance professionals, and organisations identify potential weaknesses in data and AI workflows.
 
-1. **Data Quality** — completeness, consistency, validity, duplicates, and anomalies.
-2. **Data Governance** — privacy, sensitive data, metadata, ownership, and governance controls.
-3. **AI Readiness** — class imbalance, feature suitability, leakage risks, and modelling readiness.
-4. **Responsible AI** — fairness, explainability, and potential bias.
-5. **Operational Trust** — data drift, reproducibility, monitoring, and ongoing reliability.
+The framework is designed to provide transparent, evidence-based indicators that support informed decisions and human review.
+
+**Important:** TrustLens AI does not independently certify that a dataset or AI system is trustworthy, fair, reliable, legally compliant, or suitable for production deployment.
 
 ## Project Vision
 
-The goal of TrustLens AI is to bridge the gap between traditional data-quality assessment, data governance, and responsible AI.
+TrustLens AI aims to bridge the gap between traditional data-quality assessment, data governance, machine-learning readiness, responsible AI, and ongoing operational monitoring.
 
-As the framework develops, TrustLens AI is intended to generate two broader indicators:
+The long-term vision is to establish an extensible framework that helps organisations evaluate data and AI systems throughout their lifecycle.
 
-### Data Readiness Score
+The project prioritises:
 
-A quantitative assessment of whether a dataset is sufficiently prepared for machine learning and AI applications.
+- Transparent assessment methods
+- Reproducible analysis
+- Explainable assessment results
+- Responsible interpretation of findings
+- Evidence-based governance
+- Human oversight
+- Extensible architecture
+- Automated testing and continuous integration
 
-### AI Trust Score
+## Core Assessment Dimensions
 
-A broader assessment incorporating data quality, governance, privacy, fairness, explainability, and operational considerations.
+| Dimension | Focus |
+|---|---|
+| Data Quality | Completeness, consistency, validity, uniqueness, duplicates, and anomalies |
+| Data Governance | Privacy, sensitive data, metadata, ownership, and governance controls |
+| AI Readiness | Class imbalance, feature suitability, leakage risks, and modelling readiness |
+| Responsible AI | Group fairness, bias indicators, prediction-performance fairness, and explainability readiness |
+| Operational Trust | Data drift, stability, reproducibility readiness, monitoring readiness, and operational review indicators |
 
 ## Current Capabilities
 
-TrustLens AI currently provides foundational capabilities across data quality and data governance.
+### 1. Data Quality
 
-### Data Quality
-
-Current data-quality functionality includes:
+The Data Quality component provides foundational dataset analysis, including:
 
 - Dataset profiling
 - Missing-value analysis
@@ -41,37 +51,39 @@ Current data-quality functionality includes:
 - Completeness assessment
 - Uniqueness assessment
 - IQR-based outlier detection
-- Outlier summaries and affected-column reporting
-- Structured data-quality assessment output
+- Outlier summaries
+- Structured assessment output
 
-### Data Governance
+These capabilities help identify potential data-quality problems that may affect downstream analysis or modelling.
 
-The Phase 3 governance engine introduces:
+### 2. Data Governance
+
+The Data Governance component supports:
 
 - Dataset governance assessment
 - Column inventory generation
 - Sensitive-data detection
-- Detection of sensitive information from column names and value patterns
+- Sensitive-information indicators based on column names and value patterns
 - Personally identifiable information indicators
 - Privacy-risk assessment
-- Sensitive-column ratio assessment
+- Sensitive-column ratio analysis
 - Privacy exposure scoring
 - Privacy-risk classification
 - Governance recommendations
 - Metadata completeness assessment
 - Metadata coverage scoring
-- Identification of missing metadata
+- Missing metadata identification
 - Governance-control assessment
 - Governance-control coverage scoring
-- Identification of missing governance controls
+- Missing governance-control identification
 - Governance maturity classification
 - Integrated governance reporting
 
-The governance capabilities are exposed through the `DataGovernanceAssessor`, allowing structural assessment, sensitive-data analysis, privacy-risk assessment, metadata completeness, and governance controls to be evaluated through a unified interface.
+The integrated governance capabilities are exposed through `DataGovernanceAssessor`.
 
-## Governance Controls
+#### Foundational Governance Controls
 
-TrustLens AI currently evaluates seven foundational governance controls:
+TrustLens AI evaluates seven foundational governance controls:
 
 1. Data ownership
 2. Approved purpose
@@ -81,44 +93,224 @@ TrustLens AI currently evaluates seven foundational governance controls:
 6. Governance review process
 7. Accountability
 
-The framework can determine which controls are implemented or missing, calculate governance-control coverage, classify governance maturity, and generate recommendations for missing controls.
+Governance coverage and maturity classifications are assessment indicators, not legal compliance certifications.
 
-## Phase 3 Integrated Governance Report
+### 3. AI Readiness
 
-When governance information is supplied, the integrated assessment can expose the following sections:
+The AI Readiness component provides indicators to support the preparation of datasets for machine-learning applications.
 
-- `dataset`
-- `column_inventory`
-- `sensitive_data`
-- `privacy_risk`
-- `metadata_completeness`
-- `governance_controls`
-
-Optional governance inputs remain backward compatible, allowing datasets to be assessed even when metadata or governance-control information is not supplied.
-
-## Planned Capabilities
-
-Future development is expected to extend TrustLens AI with:
+Implemented capabilities include:
 
 - Feature suitability analysis
 - Class imbalance analysis
-- Potential data-leakage detection
-- AI readiness scoring
-- Bias and fairness assessment
-- Model explainability support
-- Data-drift detection
-- Reproducibility assessment
-- Operational monitoring indicators
-- Automated remediation recommendations
-- Data Readiness Score
-- AI Trust Score
-- Interactive assessment dashboard
-- Automated reports
-- REST API
+- Potential data-leakage indicators
+- Integrated AI readiness assessment
+
+These analyses help identify conditions that may require additional investigation before model development.
+
+AI readiness indicators do not guarantee model performance or suitability for a particular application.
+
+### 4. Responsible AI
+
+The Responsible AI component supports evidence-based analysis across several areas:
+
+- Group fairness indicators
+- Bias indicator analysis
+- Prediction-performance fairness
+- Explainability readiness
+- Integrated Responsible AI assessment
+
+The framework is designed to identify measurable differences, evidence gaps, and conditions requiring human review.
+
+**Responsible AI assessment limitations:**
+
+- A detected statistical difference does not automatically establish unlawful discrimination.
+- Absence of a detected indicator does not prove that a model is fair.
+- Explainability readiness does not establish that an explanation is correct or sufficient.
+- Responsible AI findings require appropriate domain expertise, contextual interpretation, and human oversight.
+
+### 5. Operational Trust
+
+The Operational Trust component provides an integrated assessment of four operational dimensions.
+
+#### Data Drift Detection
+
+The `DataDriftAnalyzer` supports:
+
+- Comparison of current and reference datasets
+- Shared-column identification
+- Schema-change indicators
+- Numeric mean-shift analysis
+- Categorical distribution-change analysis
+- Feature-type incompatibility indicators
+- Configurable drift thresholds
+- Structured review indicators
+
+Data drift analysis requires a reference dataset.
+
+#### Data Stability and Change Indicators
+
+The `DataStabilityAnalyzer` evaluates:
+
+- Missingness pressure
+- Constant features
+- Near-constant features
+- High-cardinality categorical features
+- Duplicate-row pressure
+- Feature-type summaries
+- Configurable thresholds
+- Stability review reasons
+
+These indicators help identify structural conditions that may warrant further investigation.
+
+#### Reproducibility Readiness
+
+The `ReproducibilityReadinessAnalyzer` assesses supplied reproducibility evidence, including:
+
+- Dataset version
+- Code version
+- Random seed
+- Execution environment
+- Data source
+- Data lineage
+- Execution identifier
+- Optional identifier-column integrity
+
+Missing evidence is reported as a review indicator.
+
+The presence of metadata does not independently demonstrate that an experiment or pipeline is reproducible.
+
+#### Monitoring Readiness
+
+The `MonitoringReadinessAnalyzer` evaluates supplied monitoring evidence, including:
+
+- Monitoring metrics
+- Alerting rules
+- Monitoring ownership
+- Review cadence
+- Logging configuration
+- Incident processes
+- Reassessment triggers
+- Monitoring history
+
+The framework identifies missing monitoring evidence and configuration conditions that require review.
+
+Monitoring readiness assessment does not verify that a live monitoring system is operating effectively.
+
+#### Integrated Operational Trust Assessment
+
+The `OperationalTrustAssessor` coordinates all four operational dimensions.
+
+It produces:
+
+- Dataset assessment context
+- Analysis availability information
+- Data drift results, when reference data is available
+- Data stability results
+- Reproducibility readiness results
+- Monitoring readiness results
+- An integrated Operational Trust overview
+- An Operational Trust summary
+
+The integrated overview distinguishes between available and unavailable analyses and identifies which assessed dimensions contain review indicators.
+
+It deliberately avoids reducing these findings to an unsupported numerical trust score.
+
+## Operational Trust Usage Example
+
+The following example illustrates how to run an Operational Trust assessment using Pandas.
+
+```python
+import pandas as pd
+
+from trustlens.operational_trust.assessor import OperationalTrustAssessor
+
+reference_data = pd.DataFrame(
+    {
+        "record_id": [1, 2, 3, 4],
+        "score": [10, 20, 30, 40],
+    }
+)
+
+current_data = pd.DataFrame(
+    {
+        "record_id": [1, 2, 3, 4],
+        "score": [12, 22, 32, 42],
+    }
+)
+
+reproducibility_metadata = {
+    "dataset_version": "v1.0",
+    "code_version": "commit-abc123",
+    "random_seed": 42,
+    "environment": "python-3.12",
+    "data_source": "validated-source",
+    "lineage": "source-to-model-pipeline",
+    "execution_id": "run-001",
+}
+
+monitoring_metadata = {
+    "monitoring_metrics": ["data_drift", "missingness"],
+    "alerting_rules": {"data_drift": "review_threshold"},
+    "monitoring_owner": "ml-platform",
+    "review_cadence": "monthly",
+    "logging_enabled": True,
+    "incident_process": "operational-runbook",
+    "reassessment_triggers": ["material_data_change"],
+    "monitoring_history": ["2026-10-review"],
+}
+
+assessor = OperationalTrustAssessor(
+    current_data,
+    reference_data=reference_data,
+    reproducibility_metadata=reproducibility_metadata,
+    identifier_column="record_id",
+    monitoring_metadata=monitoring_metadata,
+)
+
+report = assessor.assess()
+
+print(report["operational_trust_summary"])
+print(report["operational_trust_overview"])
+```
+
+The returned report contains structured dictionaries that can be inspected programmatically or incorporated into downstream reporting workflows.
+
+## Installation and Testing
+
+TrustLens AI is currently in active development and has not yet been presented as a stable packaged release.
+
+To work with the repository locally:
+
+```bash
+git clone https://github.com/deyanjukorede/trustlens-ai.git
+cd trustlens-ai
+python -m pip install -r requirements.txt
+python -m pip install pytest
+python -m pytest -v
+```
+
+Run commands from the repository root.
+
+## Testing and Continuous Integration
+
+TrustLens AI uses `pytest` for automated testing and GitHub Actions for continuous integration.
+
+The test suite covers individual analyzers, assessment contracts, validation behaviour, and integration between components.
+
+The CI workflow currently runs tests against:
+
+- Python 3.10
+- Python 3.11
+- Python 3.12
+
+The project uses automated checks to help detect regressions as new functionality is introduced.
+
+Passing tests provide evidence that tested behaviours work as expected; they do not establish that the framework is free from defects.
 
 ## Initial Use Cases
 
-TrustLens AI is being designed for use across data-intensive environments, including:
+TrustLens AI is being developed for data-intensive environments, including:
 
 - Financial services and fintech
 - Fraud detection
@@ -126,76 +318,77 @@ TrustLens AI is being designed for use across data-intensive environments, inclu
 - Healthcare analytics
 - Enterprise information systems
 - Responsible AI governance
+- Academic research
+- Data governance and risk management
 
-The framework is intended to support data scientists, analysts, governance professionals, researchers, AI developers, and organisations seeking to understand whether their data is sufficiently reliable and governed for AI use.
+Assessment findings must be interpreted in the context of the relevant dataset, application, organisational controls, and regulatory environment.
+
+## Development Roadmap
+
+| Phase | Focus | Status |
+|---|---|---|
+| Phase 1 | Data Quality Foundation | Implemented |
+| Phase 2 | Data Quality Enhancement | Implemented |
+| Phase 3 | Data Governance | Implemented |
+| Phase 4 | AI Readiness | Implemented |
+| Phase 5 | Responsible AI | Implemented |
+| Phase 6 | Operational Trust & Monitoring | Implementation complete; documentation and release review in progress |
+| Phase 7 | Unified Reporting, Developer Experience & v1.0 Release | Planned |
+
+### Phase 7 — Planned Development
+
+Future development priorities include:
+
+- Unified assessment workflow across all five dimensions
+- Consistent cross-dimension reporting
+- Developer-facing examples and documentation
+- Command-line interface
+- Packaging and installation improvements
+- End-to-end integration tests
+- CI and release-process hardening
+- Initial versioned release
+
+Longer-term opportunities may include:
+
+- Interactive assessment dashboard
+- Automated report generation
+- REST API
+- Deployment integrations
+- Context-sensitive remediation recommendations
+- Carefully validated assessment scoring methodologies
+
+Any future numerical scoring methodology should document its assumptions, limitations, weighting, validation, and intended interpretation.
 
 ## Project Status
 
-**Current Version:** Pre-Alpha
+**Current status: Pre-Alpha — Active Development**
 
-TrustLens AI is under active development.
+TrustLens AI has implemented foundational assessment capabilities across its five core dimensions.
 
-The foundational Data Quality capabilities and Phase 3 Data Governance capabilities are now implemented. Development will continue toward AI readiness, responsible AI, operational trust, scoring, reporting, and deployment capabilities.
+The project is progressing toward a more unified developer experience, improved documentation, and a versioned release.
 
-The current implementation includes automated tests across supported Python environments, with GitHub Actions used for continuous integration.
+The framework is intended to support evidence-based evaluation rather than replace professional judgement, independent validation, or regulatory assessment.
 
 ## Technology Stack
 
-The project currently uses or is expected to use:
+The current implementation primarily uses:
 
 - Python
 - Pandas
 - NumPy
-- Scikit-learn
-- FastAPI
-- Streamlit
-- SHAP
 - Pytest
-- Docker
 - GitHub Actions
 
-## Development Roadmap
-
-### Phase 1: Data Quality Foundation — Implemented
-
-Core dataset profiling, missing-value analysis, duplicate detection, completeness assessment, uniqueness assessment, and foundational data-quality reporting.
-
-### Phase 2: Data Quality Enhancement — Implemented
-
-IQR-based outlier detection and integration of anomaly information into the data-quality assessment workflow.
-
-### Phase 3: Data Governance — Implemented
-
-Sensitive-data detection, privacy-risk assessment, metadata completeness assessment, governance controls, governance scoring, recommendations, and integrated governance reporting.
-
-### Phase 4: AI Readiness — Planned
-
-Feature suitability, class imbalance, leakage-risk analysis, and AI readiness assessment.
-
-### Phase 5: Responsible AI — Planned
-
-Bias detection, fairness metrics, explainability, and responsible-AI assessment.
-
-### Phase 6: Operational Trust — Planned
-
-Data drift, reproducibility, monitoring, and ongoing reliability indicators.
-
-### Phase 7: Scoring, Reporting & Platform — Planned
-
-Data Readiness Score, AI Trust Score, automated reporting, interactive assessment dashboard, REST API, and deployment capabilities.
-
-## Testing
-
-TrustLens AI uses `pytest` for automated testing and GitHub Actions for continuous integration.
-
-The test suite currently covers data-quality and governance components, including integration tests designed to verify that Phase 3 governance capabilities operate together without breaking existing assessment behaviour.
+Additional technologies may be introduced as the project develops, including Scikit-learn, FastAPI, Streamlit, SHAP, and Docker, where appropriate to the implementation roadmap.
 
 ## Contributing
 
-TrustLens AI is currently in early development. Contribution guidelines will be introduced as the framework matures.
+TrustLens AI is an open-source project under active development.
 
-Contributions, testing feedback, research collaboration, and suggestions for improving the framework are welcome as the project develops.
+Contributions, testing feedback, research collaboration, documentation improvements, and suggestions for extending the assessment framework are welcome.
+
+Formal contribution guidelines will be introduced as the project matures.
 
 ## License
 
-This project is licensed under the MIT License.
+TrustLens AI is licensed under the MIT License. See the repository's `LICENSE` file for details.
