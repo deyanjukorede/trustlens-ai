@@ -1,0 +1,265 @@
+
+# Security Policy
+
+## TrustLens AI — Security and Responsible Vulnerability Disclosure
+
+TrustLens AI is an open-source Python framework for assessing data quality, data governance, AI readiness, responsible AI indicators, and operational trust.
+
+Security, privacy, reliability, and assessment integrity are important considerations throughout the development and maintenance of this project.
+
+We welcome responsible vulnerability reports from security researchers, developers, users, and members of the open-source community.
+
+This policy explains how to report security concerns, which versions are supported, and how vulnerabilities are reviewed.
+
+## 1. Supported Versions
+
+TrustLens AI is currently in pre-release development.
+
+| Version | Security Support |
+|---|---|
+| Development branch `feature/unified-reporting-v1` | Security reports accepted; fixes assessed individually |
+| `main` development branch | Security reports accepted; fixes assessed individually |
+| `0.1.0-dev` | Development version; no formal security maintenance guarantee |
+| `1.0.0rc1` | Planned release candidate; not yet published |
+| `1.0.0` | Planned stable release; not yet published |
+
+The project does not currently guarantee security patches within a fixed timeframe.
+
+Following a stable release, this section will be updated to identify supported release versions and maintenance arrangements.
+
+## 2. Reporting a Vulnerability
+
+**Please do not disclose suspected exploitable vulnerabilities through public GitHub issues, pull requests, discussions, or social media before the maintainers have had an opportunity to review them.**
+
+The preferred reporting method is GitHub's private vulnerability reporting feature, if enabled.
+
+To submit a private report:
+
+1. Open the [TrustLens AI GitHub repository](https://github.com/deyanjukorede/trustlens-ai).
+2. Navigate to the **Security** tab.
+3. Select **Report a vulnerability**, if available.
+4. Provide the relevant technical information.
+5. Submit the report privately.
+
+If private vulnerability reporting is unavailable, please avoid posting exploit details publicly. Contact the repository maintainer privately through an established contact channel to arrange a secure reporting method.
+
+Do not include credentials, personal information, or confidential datasets in an initial report.
+
+## 3. Information to Include
+
+A useful vulnerability report should contain:
+
+- A concise description of the suspected vulnerability
+- The affected TrustLens AI component
+- The affected version, branch, or commit, if known
+- The environment in which the issue was observed
+- Steps required to reproduce the issue
+- Expected and actual behaviour
+- Potential security or privacy impact
+- Relevant error messages or sanitised logs
+- A suggested mitigation, if available
+
+Proof-of-concept material should use synthetic or appropriately authorised data.
+
+Please avoid submitting real credentials, access tokens, private datasets, or other sensitive information unless a secure exchange method has been agreed.
+
+## 4. Security Issues Within Scope
+
+Potential security concerns include, but are not limited to:
+
+### Data Confidentiality and Privacy
+
+- Unintended disclosure of sensitive dataset values
+- Exposure of personal information through reports or logs
+- Unsafe handling of confidential assessment inputs
+- Insecure temporary-file handling
+- Unintended persistence of sensitive data
+
+### Input and File Handling
+
+- Unsafe file-path handling
+- Unintended file modification or overwriting
+- Improper validation of external inputs
+- Unsafe processing of malformed datasets
+- Resource exhaustion caused by specially crafted inputs
+
+### Dependency and Supply-Chain Security
+
+- Vulnerable third-party dependencies
+- Dependency substitution or installation risks
+- Compromised build or release processes
+- Unsafe package distribution practices
+- Exposure of secrets through CI workflows
+
+### Assessment Integrity
+
+- Manipulation of assessment results through a security weakness
+- Security defects that cause misleading report output
+- Unauthorised modification of assessment configurations
+- Unsafe handling of externally supplied metadata
+- Security issues affecting the integrity of generated reports
+
+### Future Integrations
+
+As TrustLens AI develops additional interfaces or deployment capabilities, security reporting may also cover:
+
+- Authentication and authorisation weaknesses
+- API security
+- Dashboard access control
+- Deployment configuration
+- Secrets management
+- Integration security
+
+These future capabilities are not presented as currently implemented features.
+
+## 5. Issues Outside the Security Disclosure Process
+
+Not every incorrect assessment result is a security vulnerability.
+
+The following may be more appropriate for ordinary GitHub issues:
+
+- Documentation errors
+- General usability problems
+- Feature requests
+- Non-security performance improvements
+- Methodological disagreements
+- Incorrect results without an exploitable security or privacy impact
+- Ordinary software defects that do not create a security risk
+
+If you are uncertain whether an issue is security-sensitive, use a private reporting channel where possible.
+
+## 6. Responsible Research Expectations
+
+Security research should be conducted lawfully and responsibly.
+
+Researchers are expected to:
+
+- Test only systems, datasets, and environments they own or are authorised to assess.
+- Avoid accessing or modifying third-party information without permission.
+- Avoid disrupting services or other users.
+- Minimise unnecessary data collection.
+- Avoid publishing sensitive exploitation details prematurely.
+- Use synthetic data for reproducible demonstrations where possible.
+- Report findings in good faith.
+
+This policy does not grant permission to test systems operated by third parties or to access data without authorisation.
+
+## 7. Vulnerability Review Process
+
+When a security report is received, maintainers will aim to follow these steps:
+
+1. Review the submitted information.
+2. Determine whether the issue is reproducible.
+3. Assess the potential security, privacy, and operational impact.
+4. Identify affected components and versions.
+5. Determine an appropriate mitigation or correction.
+6. Develop and test a fix where appropriate.
+7. Coordinate disclosure and release information when necessary.
+
+Reports may require additional information before they can be fully assessed.
+
+The project does not currently promise a specific acknowledgement, remediation, or disclosure timeframe.
+
+## 8. Coordinated Disclosure
+
+We encourage researchers to allow reasonable time for investigation and remediation before publicly disclosing technical vulnerability details.
+
+Where appropriate, maintainers may coordinate:
+
+- A corrective release
+- A GitHub security advisory
+- Affected-version information
+- Mitigation guidance
+- Public acknowledgement of the reporter
+
+Public acknowledgement will be considered with the reporter's preferences and the circumstances of the report.
+
+Disclosure timing should take account of the severity of the issue, potential user harm, and availability of mitigations.
+
+## 9. Security Development Practices
+
+TrustLens AI aims to incorporate security considerations into its development workflow.
+
+Current practices include:
+
+- Automated testing with `pytest`
+- GitHub Actions continuous integration
+- Testing against supported Python versions
+- Input validation
+- Structured error handling
+- CLI output-file overwrite protection
+- Package build and installation verification
+- Review of security-relevant code changes
+
+Additional security practices may be introduced as the project matures, including dependency vulnerability scanning, static analysis, release signing, and automated security checks.
+
+These additional practices should not be assumed to exist until implemented and documented.
+
+Automated tests and validation do not guarantee that the software is free from vulnerabilities.
+
+## 10. Privacy and Sensitive Data
+
+TrustLens AI may be used to assess datasets containing confidential or sensitive information.
+
+Users should evaluate applicable privacy, confidentiality, security, and regulatory requirements before processing such datasets.
+
+Recommended precautions include:
+
+- Use synthetic or anonymised datasets for public demonstrations.
+- Avoid committing confidential datasets to public repositories.
+- Restrict access to sensitive source files and generated reports.
+- Review report contents before sharing them.
+- Apply appropriate retention and deletion procedures.
+- Avoid including credentials or secrets in metadata files.
+- Use appropriate organisational controls for sensitive data processing.
+
+TrustLens AI's governance and privacy indicators do not independently establish legal compliance.
+
+## 11. Assessment Integrity and Limitations
+
+TrustLens AI provides evidence-based indicators to support human evaluation.
+
+It does not independently certify that a dataset or AI system is:
+
+- Secure
+- Fair
+- Trustworthy
+- Legally compliant
+- Free from privacy risks
+- Suitable for production deployment
+
+Security-sensitive decisions should involve appropriate independent assessment and professional judgement.
+
+## 12. Security Updates
+
+When a security-related correction is released, relevant information may be documented through:
+
+- [CHANGELOG.md](CHANGELOG.md)
+- GitHub release notes
+- GitHub security advisories, where appropriate
+- Repository documentation
+
+Users are encouraged to review release information and apply relevant updates.
+
+## 13. Policy Maintenance
+
+This policy may be revised as TrustLens AI evolves.
+
+Changes may reflect:
+
+- New supported versions
+- Additional deployment environments
+- Expanded security controls
+- New reporting channels
+- Updated vulnerability management practices
+- Changes to release and maintenance arrangements
+
+## 14. Project Resources
+
+- [TrustLens AI Repository](https://github.com/deyanjukorede/trustlens-ai)
+- [README](README.md)
+- [Contribution Guidelines](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
+- [MIT License](LICENSE)
+
+Thank you for helping improve the security, reliability, and integrity of TrustLens AI.
