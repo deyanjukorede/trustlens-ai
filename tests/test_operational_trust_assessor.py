@@ -291,6 +291,7 @@ def test_assess_returns_integrated_structure_without_reference_data():
         "data_stability",
         "reproducibility",
         "monitoring_readiness",
+        "operational_trust_overview",
         "operational_trust_summary",
     }
 
