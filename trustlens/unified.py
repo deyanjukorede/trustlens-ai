@@ -10,10 +10,12 @@ This module coordinates the five TrustLens assessment dimensions:
 - Responsible AI
 - Operational Trust
 
-The unified assessment preserves the detailed results produced by
-each specialist assessor. It does not calculate an overall trust
-score or certify that data or AI systems are safe, fair, reliable,
-production-ready, or legally compliant.
+The unified assessment preserves specialist results and provides
+a consolidated cross-dimension reporting summary.
+
+It does not calculate an overall trust score or certify that data
+or AI systems are safe, fair, reliable, production-ready, or
+legally compliant.
 """
 
 from typing import Any, Dict, Hashable, List, Optional
@@ -24,6 +26,7 @@ from .governance.assessor import DataGovernanceAssessor
 from .operational_trust.assessor import OperationalTrustAssessor
 from .quality.profiler import DataQualityProfiler
 from .readiness.assessor import AIReadinessAssessor
+from .reporting import UnifiedReportBuilder
 from .responsible_ai.assessor import ResponsibleAIAssessor
 
 
@@ -115,8 +118,8 @@ class TrustLensAssessor:
         -------
         dict
             Structured report containing assessment context,
-            individual dimension results, analysis availability,
-            and interpretation limitations.
+            specialist results, analysis availability,
+            cross-dimension summary, and limitations.
         """
         quality = DataQualityProfiler(self.data).analyze()
 
@@ -147,7 +150,7 @@ class TrustLensAssessor:
             monitoring_metadata=self.monitoring_metadata,
         ).assess()
 
-        return {
+        report = {
             "framework": "TrustLens AI",
             "report_type": "unified_assessment",
             "assessment_context": {
@@ -225,6 +228,12 @@ class TrustLensAssessor:
                 ),
             ],
         }
+
+        report["cross_dimension_summary"] = (
+            UnifiedReportBuilder(report).build()
+        )
+
+        return report
 
     def analyze(self) -> Dict[str, Any]:
         """Provide an alternative name for the unified assessment."""
