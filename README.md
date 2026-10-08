@@ -1,4 +1,3 @@
-
 # TrustLens AI
 
 ### Open-Source AI Data Readiness, Governance & Trust Assessment Framework
@@ -216,6 +215,126 @@ The integrated overview distinguishes between available and unavailable analyses
 
 It deliberately avoids reducing these findings to an unsupported numerical trust score.
 
+## Getting Started
+
+### Requirements
+
+- Python 3.10, 3.11, or 3.12 (the versions tested in GitHub Actions)
+- A CSV dataset for command-line assessment
+
+### Installation from Source
+
+Clone the repository and install the package in editable mode:
+
+```bash
+git clone https://github.com/deyanjukorede/trustlens-ai.git
+cd trustlens-ai
+python -m pip install -e .
+```
+
+Until the Phase 7 work is merged, use the `feature/unified-reporting-v1` branch to try these pre-release features:
+
+```bash
+git checkout feature/unified-reporting-v1
+python -m pip install -e .
+```
+
+No stable package release has been published yet. These instructions install from source rather than from PyPI.
+
+### First Assessment Using the CLI
+
+Create a file named `sample.csv` with the following contents:
+
+```csv
+age,income,group,target
+22,25000,A,0
+34,42000,B,1
+45,58000,A,1
+29,31000,B,0
+51,67000,A,1
+38,48000,B,0
+27,29000,A,0
+43,55000,B,1
+36,44000,A,0
+49,63000,B,1
+```
+
+From the repository root, run:
+
+```bash
+trustlens assess sample.csv --output report.json
+```
+
+The command produces a JSON report at `report.json`. The CLI requires an output path and will not overwrite an existing file. Choose a new filename for subsequent runs.
+
+For CLI help:
+
+```bash
+trustlens --help
+trustlens assess --help
+```
+
+You can also run the module directly:
+
+```bash
+python -m trustlens.cli assess sample.csv --output report-2.json
+```
+
+### Command-Line Options
+
+| Option | Purpose |
+|---|---|
+| `dataset` | Required positional path to a non-empty CSV dataset |
+| `--output` | Required destination for a new JSON report |
+| `--target` | Optional prediction target column |
+| `--prediction` | Optional model prediction column |
+| `--sensitive` | One or more sensitive-attribute column names |
+| `--reference` | Reference CSV for data drift comparison |
+| `--metadata` | Governance metadata JSON object file |
+| `--governance-controls` | Governance controls JSON object file |
+| `--reproducibility-metadata` | Reproducibility metadata JSON object file |
+| `--monitoring-metadata` | Monitoring metadata JSON object file |
+| `--identifier` | Optional identifier column |
+
+For example, using a target and sensitive attribute:
+
+```bash
+trustlens assess sample.csv --target target --sensitive group --output targeted-report.json
+```
+
+To compare a dataset with a reference CSV:
+
+```bash
+trustlens assess sample.csv --reference reference.csv --output drift-report.json
+```
+
+`reference.csv` must exist and contain data before this command can run. Optional metadata files must contain JSON objects, not top-level JSON arrays.
+
+### Unified Python Interface
+
+TrustLens AI also provides `TrustLensAssessor` for developers who want structured assessment results in Python:
+
+```python
+import pandas as pd
+from trustlens.unified import TrustLensAssessor
+
+data = pd.read_csv("sample.csv")
+assessor = TrustLensAssessor(data=data)
+report = assessor.assess()
+
+print(report.keys())
+```
+
+The unified interface coordinates Data Quality, Data Governance, AI Readiness, Responsible AI, and Operational Trust. Optional context can enable analyses that require additional inputs. The report preserves specialist assessment results and provides cross-dimension reporting rather than an unsupported overall trust certification.
+
+### Interpreting Reports
+
+- Review each dimension's detailed results and any reported evidence gaps.
+- An unavailable or not-applicable analysis is not evidence that no risk exists.
+- A review indicator is a prompt for further investigation, not a legal or safety determination.
+- The output is intended to support human oversight, domain-specific validation, and appropriate governance decisions.
+- Consider whether the dataset contains personal or confidential information before sharing assessment reports.
+
 ## Operational Trust Usage Example
 
 The following example illustrates how to run an Operational Trust assessment using Pandas.
@@ -276,21 +395,17 @@ print(report["operational_trust_overview"])
 
 The returned report contains structured dictionaries that can be inspected programmatically or incorporated into downstream reporting workflows.
 
-## Installation and Testing
+## Development Installation and Testing
 
-TrustLens AI is currently in active development and has not yet been presented as a stable packaged release.
-
-To work with the repository locally:
+For contributors working from a repository checkout:
 
 ```bash
-git clone https://github.com/deyanjukorede/trustlens-ai.git
-cd trustlens-ai
-python -m pip install -r requirements.txt
+python -m pip install -e .
 python -m pip install pytest
 python -m pytest -v
 ```
 
-Run commands from the repository root.
+Run these commands from the repository root. The project's `pyproject.toml` defines its Python package and CLI entry point. The legacy `requirements.txt` remains in the repository for existing workflows.
 
 ## Testing and Continuous Integration
 
@@ -298,13 +413,13 @@ TrustLens AI uses `pytest` for automated testing and GitHub Actions for continuo
 
 The test suite covers individual analyzers, assessment contracts, validation behaviour, and integration between components.
 
-The CI workflow currently runs tests against:
+The CI workflow runs tests against:
 
 - Python 3.10
 - Python 3.11
 - Python 3.12
 
-The project uses automated checks to help detect regressions as new functionality is introduced.
+The packaging validation workflow also builds wheel and source distributions, installs the built wheel, checks package metadata and the CLI entry point, and runs a CLI-to-JSON integration scenario. These automated checks help detect regressions as new functionality is introduced.
 
 Passing tests provide evidence that tested behaviours work as expected; they do not establish that the framework is free from defects.
 
@@ -332,21 +447,22 @@ Assessment findings must be interpreted in the context of the relevant dataset, 
 | Phase 3 | Data Governance | Implemented |
 | Phase 4 | AI Readiness | Implemented |
 | Phase 5 | Responsible AI | Implemented |
-| Phase 6 | Operational Trust & Monitoring | Implementation complete; documentation and release review in progress |
-| Phase 7 | Unified Reporting, Developer Experience & v1.0 Release | Planned |
+| Phase 6 | Operational Trust & Monitoring | Implemented |
+| Phase 7 | Unified Reporting, Developer Experience & v1.0 Release | In progress |
 
-### Phase 7 — Planned Development
+### Phase 7 — Release Preparation Progress
 
-Future development priorities include:
+| Workstream | Focus | Status |
+|---|---|---|
+| 7A | Unified Assessment Foundation | Implemented and tested |
+| 7B | Cross-Dimension Reporting | Implemented and tested |
+| 7C | Command-Line Interface and Developer Experience | Implemented and tested |
+| 7D | Packaging and Installation | Implemented; CI checks passing |
+| 7E | Documentation and Examples | In progress |
+| 7F | End-to-End Testing and CI | Planned |
+| 7G | v1.0 Release Preparation | Planned |
 
-- Unified assessment workflow across all five dimensions
-- Consistent cross-dimension reporting
-- Developer-facing examples and documentation
-- Command-line interface
-- Packaging and installation improvements
-- End-to-end integration tests
-- CI and release-process hardening
-- Initial versioned release
+The Phase 7 changes are under development on the `feature/unified-reporting-v1` branch and are not yet a published stable release.
 
 Longer-term opportunities may include:
 
@@ -361,11 +477,11 @@ Any future numerical scoring methodology should document its assumptions, limita
 
 ## Project Status
 
-**Current status: Pre-Alpha — Active Development**
+**Current status: Pre-release — Active Development**
 
 TrustLens AI has implemented foundational assessment capabilities across its five core dimensions.
 
-The project is progressing toward a more unified developer experience, improved documentation, and a versioned release.
+The unified assessment interface, cross-dimension reporting, CLI, and packaging workflow have been implemented on the Phase 7 development branch. Documentation, broader end-to-end validation, and release preparation remain in progress.
 
 The framework is intended to support evidence-based evaluation rather than replace professional judgement, independent validation, or regulatory assessment.
 
