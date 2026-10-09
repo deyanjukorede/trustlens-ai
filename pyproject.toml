@@ -1,9 +1,9 @@
 
 # TrustLens AI — Python package configuration
-# Phase 7D: Packaging and Installation
+# PyPI publication preparation
 
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -12,10 +12,13 @@ dynamic = ["version"]
 description = "Open-source AI data readiness, governance and trust assessment framework"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {file = "LICENSE"}
+license = "MIT"
+license-files = ["LICENSE"]
+
 authors = [
     {name = "Korede Adeyanju"}
 ]
+
 keywords = [
     "artificial-intelligence",
     "data-quality",
@@ -26,8 +29,9 @@ keywords = [
     "data-drift",
     "trustworthy-ai"
 ]
+
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
@@ -38,6 +42,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Operating System :: OS Independent"
 ]
+
 dependencies = [
     "pandas>=2.0"
 ]
@@ -48,6 +53,14 @@ dev = [
     "build>=1.2",
     "twine>=5.0"
 ]
+
+[project.urls]
+Homepage = "https://github.com/deyanjukorede/trustlens-ai"
+Repository = "https://github.com/deyanjukorede/trustlens-ai"
+Documentation = "https://github.com/deyanjukorede/trustlens-ai#readme"
+Issues = "https://github.com/deyanjukorede/trustlens-ai/issues"
+Changelog = "https://github.com/deyanjukorede/trustlens-ai/blob/main/CHANGELOG.md"
+Releases = "https://github.com/deyanjukorede/trustlens-ai/releases"
 
 [project.scripts]
 trustlens = "trustlens.cli:main"
