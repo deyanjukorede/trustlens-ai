@@ -23,23 +23,159 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
 
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
 
-      - name: Install dependencies
-        run: python -m pip install -r requirements.txt
+      - name: Install build and test tools
+        run: python -m pip install build pytest packaging
 
-      - name: Install pytest
-        run: python -m pip install pytest
+      - name: Build TrustLens distributions
+        run: python -m build
+
+      - name: Verify distribution files
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          dist = Path("dist")
+          wheels = list(dist.glob("*.whl"))
+          sdists = list(dist.glob("*.tar.gz"))
+
+          assert len(wheels) == 1, (
+              f"Expected one wheel, found {len(wheels)}"
+          )
+          assert len(sdists) == 1, (
+              f"Expected one source distribution, found {len(sdists)}"
+          )
+
+          print("TrustLens wheel:", wheels[0].name)
+          print("TrustLens source distribution:", sdists[0].name)
+          PY
+
+      - name: Install TrustLens from built wheel
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          wheels = list(Path("dist").glob("*.whl"))
+          assert len(wheels) == 1
+
+          subprocess.run(
+              [
+                  sys.executable,
+                  "-m",
+                  "pip",
+                  "install",
+                  str(wheels[0]),
+              ],
+              check=True,
+          )
+          PY
+
+      - name: Verify installed package metadata
+        run: |
+          python - <<'PY'
+          from importlib.metadata import distribution, version
+          from packaging.version import Version
+
+          import trustlens
+
+          installed_version = version("trustlens-ai")
+          package_version = trustlens.__version__
+
+          assert Version(installed_version) == Version(package_version), (
+              f"Version mismatch: {installed_version} != "
+              f"{package_version}"
+          )
+
+          dist = distribution("trustlens-ai")
+          entry_points = dist.entry_points
+
+          assert any(
+              entry.name == "trustlens"
+              and entry.group == "console_scripts"
+              and entry.value == "trustlens.cli:main"
+              for entry in entry_points
+          ), "TrustLens CLI entry point is missing"
+
+          print("Installed TrustLens version:", installed_version)
+          print("TrustLens CLI entry point verified")
+          PY
+
+      - name: Verify installed CLI help
+        run: |
+          trustlens --help
+          trustlens assess --help
 
       - name: Run TrustLens tests
         run: python -m pytest -v
+
+      - name: Verify CLI assessment and JSON export
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          import tempfile
+          from pathlib import Path
+
+          with tempfile.TemporaryDirectory() as directory:
+              root = Path(directory)
+              dataset = root / "sample.csv"
+              output = root / "report.json"
+
+              dataset.write_text(
+                  "age,income,group,target\n"
+                  "22,25000,A,0\n"
+                  "34,42000,B,1\n"
+                  "45,58000,A,1\n"
+                  "29,31000,B,0\n"
+                  "51,67000,A,1\n"
+                  "38,48000,B,0\n"
+                  "27,29000,A,0\n"
+                  "43,55000,B,1\n"
+                  "36,44000,A,0\n"
+                  "49,63000,B,1\n",
+                  encoding="utf-8",
+              )
+
+              subprocess.run(
+                  [
+                      "trustlens",
+                      "assess",
+                      str(dataset),
+                      "--output",
+                      str(output),
+                  ],
+                  check=True,
+              )
+
+              assert output.is_file(), (
+                  "TrustLens did not generate a JSON report"
+              )
+
+              report = json.loads(
+                  output.read_text(encoding="utf-8")
+              )
+
+              assert report["framework"] == "TrustLens AI"
+              assert len(report["dimensions"]) == 5
+              assert "cross_dimension_summary" in report
+
+              print("Installed CLI assessment successful")
+              print("JSON report validated")
+          PY
