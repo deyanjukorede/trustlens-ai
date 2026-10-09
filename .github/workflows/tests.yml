@@ -40,7 +40,7 @@ jobs:
         run: python -m pip install --upgrade pip
 
       - name: Install build and test tools
-        run: python -m pip install build pytest packaging
+        run: python -m pip install build pytest packaging twine
 
       - name: Build TrustLens distributions
         run: python -m build
@@ -64,6 +64,9 @@ jobs:
           print("TrustLens wheel:", wheels[0].name)
           print("TrustLens source distribution:", sdists[0].name)
           PY
+
+      - name: Validate PyPI distribution metadata
+        run: python -m twine check --strict dist/*
 
       - name: Install TrustLens from built wheel
         run: |
@@ -101,6 +104,11 @@ jobs:
           assert Version(installed_version) == Version(package_version), (
               f"Version mismatch: {installed_version} != "
               f"{package_version}"
+          )
+
+          assert Version(installed_version) == Version("1.0.0"), (
+              f"Expected release version 1.0.0, "
+              f"found {installed_version}"
           )
 
           dist = distribution("trustlens-ai")
@@ -178,4 +186,51 @@ jobs:
 
               print("Installed CLI assessment successful")
               print("JSON report validated")
+          PY
+
+      - name: Verify source distribution installation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import sys
+          import tempfile
+
+          sdists = list(Path("dist").glob("*.tar.gz"))
+          assert len(sdists) == 1
+
+          with tempfile.TemporaryDirectory() as directory:
+              subprocess.run(
+                  [
+                      sys.executable,
+                      "-m",
+                      "pip",
+                      "install",
+                      "--no-cache-dir",
+                      "--target",
+                      directory,
+                      str(sdists[0]),
+                  ],
+                  check=True,
+              )
+
+              verification = (
+                  "import trustlens; "
+                  "assert trustlens.__version__ == '1.0.0'; "
+                  "print('Source distribution verified')"
+              )
+
+              subprocess.run(
+                  [
+                      sys.executable,
+                      "-c",
+                      verification,
+                  ],
+                  cwd=directory,
+                  env={
+                      **__import__("os").environ,
+                      "PYTHONPATH": directory,
+                  },
+                  check=True,
+              )
           PY
