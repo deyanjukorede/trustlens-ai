@@ -367,6 +367,7 @@ TrustLens AI includes synthetic data and a practical Python example to help user
 
 ### Example Resources
 
+- [Quickstart Tutorial](QUICKSTART.md) — beginner-friendly first assessment: install, sample CSV, CLI run, and how to read the JSON report
 - [Sample Dataset](examples/sample_dataset.csv) — synthetic records for demonstrations and testing
 - [Unified Assessment Example](examples/unified_assessment_example.py) — demonstrates how to execute a five-dimension assessment
 - [Examples Guide](examples/README.md) — instructions for running examples and understanding the workflow

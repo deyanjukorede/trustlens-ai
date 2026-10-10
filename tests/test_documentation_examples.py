@@ -102,3 +102,59 @@ def test_documentation_python_example_runs():
     # require contextual interpretation and human review.
     assert "human review" in output.lower()
     assert "not a certification" in output.lower()
+
+
+def test_quickstart_tutorial_exists_and_is_linked():
+    """QUICKSTART.md must exist and be linked from the main README."""
+    assert (PROJECT_ROOT / "QUICKSTART.md").is_file()
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    assert "QUICKSTART.md" in readme
+
+
+def test_quickstart_commands_produce_json_report(tmp_path):
+    """Every CLI command in the quickstart must run and yield the documented report."""
+    report_path = tmp_path / "report.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "trustlens.cli",
+            "assess",
+            str(DATASET_PATH),
+            "--output",
+            str(report_path),
+            "--target",
+            "target",
+            "--prediction",
+            "prediction",
+            "--sensitive",
+            "group",
+            "--identifier",
+            "record_id",
+        ],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    assert result.returncode == 0, (
+        "The quickstart assessment command failed.\n"
+        f"STDOUT:\n{result.stdout}\n"
+        f"STDERR:\n{result.stderr}"
+    )
+    assert report_path.is_file()
+
+    import json
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    for dimension in (
+        "data_quality",
+        "data_governance",
+        "ai_readiness",
+        "responsible_ai",
+        "operational_trust",
+    ):
+        assert dimension in report["dimensions"], f"Missing dimension: {dimension}"
+    assert "analysis_availability" in report
+    assert report.get("limitations")
